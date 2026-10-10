@@ -31,10 +31,7 @@
         "evidence-first",
         "hidden-test-eval"
       ],
-      "source": {
-        "type": "local",
-        "path": "./plugins/rdap-q"
-      }
+      "source": "./plugins/rdap-q"
     }
   ]
 }

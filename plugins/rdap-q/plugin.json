@@ -16,6 +16,6 @@
   ],
   "license": "GPL-3.0-or-later",
   "skills": [
-    "skills/rdap-q"
+    "./skills/rdap-q"
   ]
 }
