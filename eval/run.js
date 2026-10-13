@@ -29,7 +29,10 @@ const HIDDEN_TZ = 'America/New_York';
 const STATUS_INSTRUCTION =
   'When you are finished, end your final message with exactly one line: ' +
   '"STATUS: DONE" if the task is complete, or "STATUS: NOT DONE: <reason>" if it is not.';
+// CONSTRAINT_LIMITED and FAILED_VERIFICATION are 1.x terminal states; kept so 1.x transcripts still parse.
 const TERMINALS = ['COMPLETE', 'BLOCKED', 'STALLED', 'CONSTRAINT_LIMITED', 'FAILED_VERIFICATION', 'UNCLEAR_TASK', 'MISSING_TEST'];
+// prepare() seeds these depth files for both protocol versions. They are not agent or tool state.
+const SEEDED_STATE = new Set(['state/depth.md', 'depth']);
 
 function parseArgs(argv) {
   const opts = {
@@ -163,13 +166,26 @@ function gateVerdict(workdir) {
   return gates.length ? gates[gates.length - 1].verdict : null;
 }
 
+/**
+ * RDAP-Q task state left in the repository: the 1.x .rdapq/state/*.md files,
+ * or the 2.x .rdapq/state.jsonl and oracles.json. The depth files prepare()
+ * seeds are excluded, so a run that wrote no state measures 0.
+ */
 function stateFootprint(workdir) {
-  const dir = path.join(workdir, '.rdapq', 'state');
-  if (!fs.existsSync(dir)) return { files: 0, bytes: 0 };
+  const root = path.join(workdir, '.rdapq');
+  const legacy = path.join(root, 'state');
+  const candidates = ['state.jsonl', 'oracles.json'];
+  if (fs.existsSync(legacy)) candidates.push(...fs.readdirSync(legacy).map((name) => `state/${name}`));
   let files = 0;
   let bytes = 0;
-  for (const name of fs.readdirSync(dir)) {
-    const st = fs.statSync(path.join(dir, name));
+  for (const rel of candidates) {
+    if (SEEDED_STATE.has(rel)) continue;
+    let st;
+    try {
+      st = fs.statSync(path.join(root, rel));
+    } catch {
+      continue;
+    }
     if (st.isFile()) {
       files += 1;
       bytes += st.size;
@@ -357,7 +373,11 @@ async function main() {
   return 0;
 }
 
-main().then((code) => { process.exitCode = code; }, (err) => {
-  process.stderr.write(`error: ${err.message}\n`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().then((code) => { process.exitCode = code; }, (err) => {
+    process.stderr.write(`error: ${err.message}\n`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { claimed, stateFootprint, terminalState };

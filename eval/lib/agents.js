@@ -30,6 +30,14 @@ function cleanEnv(extra) {
 // The agent may read, edit, and run node, npm test, and git inside its scratch repo. Nothing else is allowed.
 const CLAUDE_TOOLS = ['Read', 'Edit', 'Write', 'Glob', 'Grep', 'Bash(node:*)', 'Bash(npm test:*)', 'Bash(npm run:*)', 'Bash(git:*)', 'Bash(ls:*)'];
 
+// The eval measures both protocol versions. 1.x playbooks are numbered
+// (playbooks/01-discover.md); 2.x playbooks are named (discover.md, audit.md, git.md).
+const PLAYBOOK = /playbooks\/(?:\d\d-)?[\w-]+\.md/g;
+// Task state written by hand. 1.x agents kept .rdapq/state/*.md themselves. In 2.x the
+// tool owns .rdapq/ (state.jsonl, oracles.json), so any hand edit there is a protocol violation.
+const STATE_FILE = /\.rdapq\/(?:state\/|state\.jsonl$|oracles\.json$)/;
+const WRITE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit']);
+
 function toolSummary(events) {
   const calls = [];
   for (const event of events) {
@@ -42,8 +50,8 @@ function toolSummary(events) {
   return {
     toolCalls: calls.length,
     skillRead: calls.some((c) => /rdap-q\/SKILL\.md/.test(touched(c))),
-    playbooksRead: [...new Set(calls.flatMap((c) => touched(c).match(/playbooks\/\d\d-[\w-]+\.md/g) || []))].sort(),
-    stateWrites: calls.filter((c) => (c.name === 'Write' || c.name === 'Edit') && /\.rdapq\/state\//.test(touched(c))).length,
+    playbooksRead: [...new Set(calls.flatMap((c) => touched(c).match(PLAYBOOK) || []))].sort(),
+    stateWrites: calls.filter((c) => WRITE_TOOLS.has(c.name) && STATE_FILE.test(String(c.input.file_path || '').replace(/\\/g, '/'))).length,
     engineCalls: calls.filter((c) => c.name === 'Bash' && /rdapq(\.js)?\s+(start|plan|check|gate|claim|note|state|memory)\b/.test(String(c.input.command || ''))).length,
   };
 }
@@ -140,4 +148,4 @@ function resolveAgent(id, options) {
   throw new Error(`unknown agent: ${id} (use claude:<model> or codex[:<model>])`);
 }
 
-module.exports = { cleanEnv, resolveAgent };
+module.exports = { cleanEnv, resolveAgent, toolSummary };
