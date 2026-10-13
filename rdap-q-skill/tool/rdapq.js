@@ -508,7 +508,12 @@ function cmdNote(root, argv, out) {
 }
 
 function cmdState(root, argv, out) {
+  const f = parseFlags(argv);
   const spec = readJson(taskPaths(root).oracles);
+  if (f.json) {
+    out(JSON.stringify(stateJson(root, spec)));
+    return 0;
+  }
   if (!spec) {
     out('no RDAP-Q task in this repository');
     return 0;
@@ -527,6 +532,28 @@ function cmdState(root, argv, out) {
   const gate = decide(root);
   out(`gate now: ${gate.verdict}`);
   return 0;
+}
+
+/**
+ * `state --json`: the same facts as `state`, for programs (the NeMo Agent
+ * Toolkit wrapper reads this instead of parsing prose). Read-only: unlike
+ * `gate`, it does not append to the task log.
+ */
+function stateJson(root, spec) {
+  if (!spec) return { task: false, spec: null, required: [], rounds: 0, maxRounds: MAX_ROUNDS, lastCheck: null, notes: [], gate: decide(root) };
+  const log = readLog(root);
+  const checks = log.filter((e) => e.kind === 'check');
+  const last = checks[checks.length - 1];
+  return {
+    task: true,
+    spec: { risk: spec.risk, depth: spec.depth, base: spec.base, files: spec.files, run: spec.run, repro: spec.repro, defect: spec.defect },
+    required: REQUIRED[spec.risk],
+    rounds: checks.length,
+    maxRounds: MAX_ROUNDS,
+    lastCheck: last ? { round: last.round, Q: last.Q, t: last.t, oracles: last.oracles, failures: last.failures, changed: last.changed } : null,
+    notes: log.filter((e) => e.kind === 'note').slice(-5).map((n) => ({ type: n.type, text: n.text, t: n.t })),
+    gate: decide(root),
+  };
 }
 
 // ---------------------------------------------------------------- memory
@@ -746,7 +773,7 @@ const HELP = `RDAP-Q engine
   gate [--json]             name the terminal state; exit 0 COMPLETE, 3 CONTINUE, 1 otherwise
   claim "<text>" [--external] [--source s] [--verified] [--off-path]
   note assumption|decision|risk|blocker|question "<text>"
-  state                     task summary
+  state [--json]            task summary (--json: machine-readable, read-only)
   memory add --class C --fact F --evidence E [--scope project|global] [--tags a,b] [--supersedes id]
   memory search <terms...> | stale <id> [--status S] [--by id] | stats | compact
   export --out <file.jsonl> [--repo <dir>]...

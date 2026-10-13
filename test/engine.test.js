@@ -345,3 +345,50 @@ test('the engine passes the pattern Hermes scans skills for (environment dumps)'
   const source = fs.readFileSync(TOOL, 'utf8');
   assert.doesNotMatch(source, /printenv|env\s*\|/);
 });
+
+test('state --json is machine-readable, matches the gate, and never writes the log', () => {
+  const root = fixture();
+  const state = () => {
+    const r = rdapq(root, ['state', '--json']);
+    assert.equal(r.code, 0, r.err);
+    assert.equal(r.out.split('\n').length, 1, 'one JSON line');
+    return JSON.parse(r.out);
+  };
+  const logFile = path.join(root, '.rdapq', 'state.jsonl');
+
+  const none = state();
+  assert.equal(none.task, false);
+  assert.equal(none.gate.verdict, 'UNCLEAR_TASK');
+  assert.equal(fs.existsSync(path.join(root, '.rdapq')), false, 'state must not create .rdapq/');
+
+  rdapq(root, ['start', '--risk', 'HIGH', '--files', 'src/add.js', '--run', TEST_CMD, '--no-defect']);
+  const fresh = state();
+  assert.deepEqual(
+    { task: fresh.task, risk: fresh.spec.risk, depth: fresh.spec.depth, files: fresh.spec.files, run: fresh.spec.run, defect: fresh.spec.defect },
+    { task: true, risk: 'HIGH', depth: 'lean', files: ['src/add.js'], run: [TEST_CMD], defect: false },
+  );
+  assert.deepEqual(fresh.required, ['runtime', 'repo', 'repro']);
+  assert.deepEqual([fresh.rounds, fresh.maxRounds, fresh.lastCheck], [0, 3, null]);
+  assert.equal(fresh.gate.verdict, 'CONTINUE');
+
+  rdapq(root, ['check']);
+  rdapq(root, ['note', 'decision', 'keep the signature']);
+  const before = fs.readFileSync(logFile, 'utf8');
+  const failing = state();
+  assert.equal(failing.rounds, 1);
+  assert.equal(failing.lastCheck.round, 1);
+  assert.equal(failing.lastCheck.oracles.runtime.observed, 'fail');
+  assert.ok(failing.lastCheck.failures.length > 0);
+  assert.deepEqual(failing.notes.map((n) => [n.type, n.text]), [['decision', 'keep the signature']]);
+  assert.equal(failing.gate.verdict, 'CONTINUE');
+  assert.equal(fs.readFileSync(logFile, 'utf8'), before, 'state --json is read-only');
+
+  fix(root);
+  rdapq(root, ['check']);
+  const done = state();
+  const gate = JSON.parse(rdapq(root, ['gate', '--json']).out);
+  assert.equal(done.gate.verdict, 'COMPLETE');
+  assert.deepEqual(done.gate, gate, 'state --json reports what gate decides');
+  assert.equal(done.lastCheck.oracles.repo.observed, 'pass');
+  assert.match(rdapq(root, ['state']).out, /^risk HIGH, depth lean, rounds 2\/3/, 'plain state is unchanged');
+});
