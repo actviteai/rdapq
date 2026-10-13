@@ -1,5 +1,4 @@
 {
-  "$schema": "https://raw.githubusercontent.com/agent-skills/spec/main/skills.schema.json",
   "skills": [
     {
       "name": "rdap-q",

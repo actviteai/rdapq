@@ -29,6 +29,14 @@ ban('rdap-q-skill/install/install-unix.sh', /\|\|\s*true/, 'must not hide copy f
 need('rdap-q-skill/install/install-unix.sh', /SKILL\.md/, 'must verify the staged skill before swapping');
 need('.gitignore', /^\.code-dr\/$/m, 'diagnostic artifacts must be ignored');
 
+// Metadata must not name listings or schemas that do not exist. Both were
+// invented once: catalog ids for catalogs RDAP-Q is not in, and $schema URLs
+// under github.com/agent-skills/spec, which is a 404.
+for (const rel of ['skills.json', 'agentskills.json', 'marketplace.json']) {
+  ban(rel, /"marketplace_identifier"/, 'names a marketplace listing that does not exist');
+  ban(rel, /agent-skills\/spec/, 'points at a schema repository that does not exist');
+}
+
 const pkg = JSON.parse(read('package.json'));
 const bin = pkg.bin || {};
 if (bin['rdapq-install'] && String(bin['rdapq-install']).includes('install.sh')) {
