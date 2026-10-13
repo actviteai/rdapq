@@ -1,5 +1,4 @@
 {
-  "$schema": "https://raw.githubusercontent.com/agent-skills/spec/main/marketplace.schema.json",
   "name": "rdap-q",
   "displayName": "RDAP-Q: Evidence-First Quality Gates",
   "version": "2.0.0",
@@ -41,57 +40,49 @@
       "id": "codex",
       "name": "OpenAI Codex / Agents",
       "status": "supported",
-      "configuration": "AGENTS.md",
-      "marketplace_identifier": "rdapq-codex-skill"
+      "configuration": "AGENTS.md"
     },
     {
       "id": "grok",
       "name": "xAI Grok",
       "status": "supported",
-      "configuration": ".grok/rules.md",
-      "marketplace_identifier": "rdapq-grok-skill"
+      "configuration": ".grok/rules.md"
     },
     {
       "id": "copilot",
       "name": "GitHub Copilot",
       "status": "supported",
-      "configuration": ".github/copilot-instructions.md",
-      "marketplace_identifier": "coldcanuk.rdapq-copilot"
+      "configuration": ".github/copilot-instructions.md"
     },
     {
       "id": "antigravity",
       "name": "Google Antigravity",
       "status": "supported",
-      "configuration": "GEMINI.md",
-      "marketplace_identifier": "rdap-q"
+      "configuration": "GEMINI.md"
     },
     {
       "id": "goose",
       "name": "Block Goose",
       "status": "supported",
-      "configuration": ".goosehints",
-      "marketplace_identifier": "rdapq-goose-toolkit"
+      "configuration": ".goosehints"
     },
     {
       "id": "claude",
       "name": "Anthropic Claude / Claude Code",
       "status": "supported",
-      "configuration": "CLAUDE.md",
-      "marketplace_identifier": "rdapq-claude-plugin"
+      "configuration": "CLAUDE.md"
     },
     {
       "id": "cline",
       "name": "Cline & Roo Code",
       "status": "supported",
-      "configuration": ".clinerules",
-      "marketplace_identifier": "coldcanuk.rdapq-cline"
+      "configuration": ".clinerules"
     },
     {
       "id": "cursor",
       "name": "Cursor",
       "status": "supported",
-      "configuration": ".agents/skills/rdap-q/SKILL.md",
-      "marketplace_identifier": "rdap-q"
+      "configuration": ".agents/skills/rdap-q/SKILL.md"
     }
   ],
   "commands": {
