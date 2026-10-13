@@ -481,7 +481,7 @@ function cmdGate(root, argv, out) {
     out(`RDAP-Q gate: ${result.verdict}`);
     for (const r of result.reasons) out(`  - ${r}`);
     if (result.verdict === 'CONTINUE') out(`rounds used: ${result.round || 0}/${MAX_ROUNDS}. Fix the first reason, then check again.`);
-    else out(`Report exactly this terminal state: ${result.verdict}.${result.verdict === 'COMPLETE' ? ' Vibe Code Build complete.' : ''}`);
+    else out(`Report exactly this terminal state: ${result.verdict}.`);
   }
   return result.verdict in EXIT ? EXIT[result.verdict] : 1;
 }

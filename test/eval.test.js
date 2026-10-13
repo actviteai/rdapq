@@ -7,7 +7,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { toolSummary } = require('../eval/lib/agents');
-const { stateFootprint } = require('../eval/run');
+const { stateFootprint, terminalState } = require('../eval/run');
 
 test('eval tasks are sound: hidden tests fail on the start and pass on the reference', () => {
   const r = spawnSync(process.execPath, [path.join(__dirname, '..', 'eval', 'run.js'), '--self-test'], { encoding: 'utf8' });
@@ -71,4 +71,12 @@ test('stateFootprint ignores the seeded depth files and measures both layouts', 
   fs.writeFileSync(path.join(v2, '.rdapq', 'oracles.json'), '{}\n');
   fs.mkdirSync(path.join(v2, '.rdapq', 'archive'));
   assert.deepEqual(stateFootprint(v2), { files: 2, bytes: 20 });
+});
+
+test('terminalState reads gate verdicts, plus the legacy COMPLETE phrase in old transcripts', () => {
+  assert.deepEqual(terminalState('RDAP-Q gate: COMPLETE\nReport exactly this terminal state: COMPLETE.'), ['COMPLETE']);
+  assert.deepEqual(terminalState('Gate says STALLED: same failure twice.'), ['STALLED']);
+  assert.deepEqual(terminalState('Ended FAILED_VERIFICATION after round 3.'), ['FAILED_VERIFICATION']);
+  assert.deepEqual(terminalState('All oracles pass. Vibe Code Build complete.'), ['COMPLETE']);
+  assert.deepEqual(terminalState('STATUS: DONE'), []);
 });
