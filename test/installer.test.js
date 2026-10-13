@@ -295,6 +295,53 @@ test('install.sh refuses a pipe and delegates a real launch', () => {
   assert.equal(fs.existsSync(path.join(env.CODEX_HOME, 'AGENTS.md')), false);
 });
 
+/** A PATH whose first `node` reports an old version and refuses to run anything. */
+function oldNodePath(root, version = 'v20.11.1') {
+  const bin = path.join(root, 'old-node-bin');
+  fs.mkdirSync(bin, { recursive: true });
+  const shim = path.join(bin, 'node');
+  fs.writeFileSync(shim, [
+    '#!/bin/sh',
+    'case "$1" in',
+    `  -v|--version) echo "${version}" ;;`,
+    `  -p) echo "${version.slice(1).split('.')[0]}" ;;`,
+    '  *) echo "old node must not run the installer" >&2; exit 99 ;;',
+    'esac',
+    '',
+  ].join('\n'));
+  fs.chmodSync(shim, 0o755);
+  return `${bin}${path.delimiter}${process.env.PATH}`;
+}
+
+const POSIX = process.platform !== 'win32';
+
+test('install.sh refuses Node older than 22 before writing anything', { skip: !POSIX && 'needs a POSIX shell' }, () => {
+  const { env, root } = tempLayout();
+  const r = spawnSync('bash', [path.join(REPO, 'install.sh'), '--claude'], { encoding: 'utf8', env: { ...env, PATH: oldNodePath(root) } });
+  assert.equal(r.status, 1, r.stderr);
+  assert.match(r.stderr, /Node\.js >= 22 is required \(found v20\.11\.1\)/);
+  assert.equal(fs.existsSync(env.RDAPQ_HOME), false);
+});
+
+const PWSH = process.env.PWSH || 'pwsh';
+const hasPwsh = POSIX && spawnSync(PWSH, ['-NoProfile', '-NonInteractive', '-Command', 'exit 0'], { encoding: 'utf8' }).status === 0;
+
+test('install.ps1 refuses Node older than 22 and delegates a real launch', { skip: !hasPwsh && 'pwsh is not installed' }, () => {
+  const { env, root } = tempLayout();
+  const script = path.join(REPO, 'install.ps1');
+  const pwsh = (args, extra = {}) => spawnSync(PWSH, ['-NoProfile', '-NonInteractive', '-File', script, ...args], { encoding: 'utf8', env: { ...env, ...extra } });
+
+  const old = pwsh(['-Claude'], { PATH: oldNodePath(root) });
+  assert.notEqual(old.status, 0);
+  assert.match(`${old.stderr}\n${old.stdout}`, /Node\.js >= 22 is required \(found v20\.11\.1\)/);
+  assert.equal(fs.existsSync(env.RDAPQ_HOME), false);
+
+  const launched = pwsh(['-Claude', '-Quiet']);
+  assert.equal(launched.status, 0, `${launched.stderr}\n${launched.stdout}`);
+  assert.equal(fs.existsSync(path.join(env.CLAUDE_HOME, 'commands', 'rdapq.md')), true);
+  assert.equal(fs.existsSync(path.join(env.CURSOR_HOME, 'skills', 'rdap-q')), false);
+});
+
 test('skill-local installer swaps only after a verified stage', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdapq-skill-'));
   const env = { ...process.env, HOME: root, RDAPQ_HOME: path.join(root, 'home') };

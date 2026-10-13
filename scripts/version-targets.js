@@ -40,7 +40,13 @@ const PROSE_TARGETS = [
 ];
 
 // These must not hardcode a version; they read package.json at runtime.
+// install.sh and install.ps1 do name the minimum Node.js major ("22"): they
+// check Node before it can read package.json. That is not a semver, so the
+// stamp checks ignore it; check-versions.js compares it with engines.node.
 const NO_VERSION = ['bin/rdapq.js', 'lib/installer.js', 'install.sh', 'install.ps1'];
+
+// The installer wrappers that gate on the minimum Node.js major.
+const NODE_GATES = ['install.sh', 'install.ps1'];
 
 const SEMVER = /(?<![\d.])\d+\.\d+\.\d+(?![\d.])/g;
 
@@ -53,4 +59,4 @@ function pick(data, keys) {
   return keys.reduce((node, key) => (node == null ? undefined : node[key]), data);
 }
 
-module.exports = { JSON_TARGETS, PROSE_TARGETS, NO_VERSION, SEMVER, KEEP, stampable, pick };
+module.exports = { JSON_TARGETS, PROSE_TARGETS, NO_VERSION, NODE_GATES, SEMVER, KEEP, stampable, pick };

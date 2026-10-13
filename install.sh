@@ -21,13 +21,13 @@ if [[ ! -f "$SCRIPT_DIR/rdap-q-skill/SKILL.md" || ! -f "$SCRIPT_DIR/bin/rdapq.js
 fi
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "error: Node.js >= 18 is required. Install Node, then re-run ./install.sh or use npx rdap-q." >&2
+  echo "error: Node.js >= 22 is required. Install Node, then re-run ./install.sh or use npx rdap-q." >&2
   exit 1
 fi
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
-if [[ "$NODE_MAJOR" -lt 18 ]]; then
-  echo "error: Node.js >= 18 is required (found $(node -v))." >&2
+if [[ "$NODE_MAJOR" -lt 22 ]]; then
+  echo "error: Node.js >= 22 is required (found $(node -v))." >&2
   exit 1
 fi
 
