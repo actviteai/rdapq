@@ -480,7 +480,7 @@ rdapq/
 ├── eval/                         # hidden-test eval harness and results
 ├── scripts/                      # version stamping, static checks, harness audit
 ├── test/                         # node:test suites
-├── .claude-plugin/, plugins/rdap-q/  # plugin marketplace (Claude Code, Codex, Copilot, Grok)
+├── .claude-plugin/, plugins/rdap-q/  # plugin marketplace (Claude Code, Codex, Copilot, Grok); the skill copy is generated: npm run sync
 ├── manifest.json, package.json
 └── rdap-q-skill/                 # the skill that gets installed
     ├── SKILL.md                  # the protocol (loaded on every /rdapq run)
@@ -541,7 +541,7 @@ Contributions are welcome, especially new harnesses, new eval tasks, and oracle 
 1. Fork the repository: [https://github.com/coldcanuk/rdapq](https://github.com/coldcanuk/rdapq)
 2. Create a feature branch: `git checkout -b feature/new-harness-support`
 3. Run `npm test` (Node.js 22+). It checks the installer, the engine, the eval tasks, the npm tarball, and version consistency. Protocol changes should also come with an eval run.
-4. To cut a release, run `npm version <patch|minor|major>`. It stamps the version into every manifest and bridge (see `scripts/version-targets.js`), regenerates `integrations/hermes/`, and commits and tags `vX.Y.Z`. After changing anything in `rdap-q-skill/`, run `npm run sync` so the Hermes URL-install copy matches. Never edit version stamps by hand; `npm run stamp` repairs drift. A README line that must name an older version (release history, eval baselines, the npm `latest` that is not this tree) ends with `<!-- keep-version -->`. `.github/workflows/release.yml` publishes from a `v*` tag only when the `NPM_PUBLISH` repository variable is `true` and npm Trusted Publishing is configured for `coldcanuk/rdapq`. Until that is on, publish from a clean checkout of the tagged commit with `npm test` then `npm publish --access public`. Wait until `npm view rdap-q version` matches the tag before telling people to run `npx`; npm can take a few minutes to serve a new version. Publish this 2.0.0 tree only after the eval ship gate passes; npm `latest` is 1.4.0. <!-- keep-version -->
+4. To cut a release, run `npm version <patch|minor|major>`. It stamps the version into every manifest and bridge (see `scripts/version-targets.js`), regenerates `integrations/hermes/` and `plugins/rdap-q/skills/rdap-q/`, and commits and tags `vX.Y.Z`. After changing anything in `rdap-q-skill/`, run `npm run sync` so both generated copies (the Hermes URL install and the marketplace plugin's skill) match; `npm test` fails until they do. Never edit version stamps by hand; `npm run stamp` repairs drift. A README line that must name an older version (release history, eval baselines, the npm `latest` that is not this tree) ends with `<!-- keep-version -->`. `.github/workflows/release.yml` publishes from a `v*` tag only when the `NPM_PUBLISH` repository variable is `true` and npm Trusted Publishing is configured for `coldcanuk/rdapq`. Until that is on, publish from a clean checkout of the tagged commit with `npm test` then `npm publish --access public`. Wait until `npm view rdap-q version` matches the tag before telling people to run `npx`; npm can take a few minutes to serve a new version. Publish this 2.0.0 tree only after the eval ship gate passes; npm `latest` is 1.4.0. <!-- keep-version -->
 5. Submit a Pull Request.
 
 **Maintained by:** [@coldcanuk](https://github.com/coldcanuk)  
