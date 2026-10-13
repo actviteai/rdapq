@@ -155,7 +155,6 @@ temp/
 .worktrees/
 git-worktrees/
 
-# Diagnostic output and pack bookkeeping (never part of the protocol)
-.code-dr/
+# Pack bookkeeping (never part of the protocol)
 .rdapq-pack-state.json
 

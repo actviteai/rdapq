@@ -27,7 +27,7 @@ ban('install.ps1', /Remove-Item/, 'wrapper must not delete user files');
 ban('rdap-q-skill/install/install-unix.sh', /rm -rf "\$TARGET\/skills\/rdap-q"/, 'must not delete the live skill before the copy succeeds');
 ban('rdap-q-skill/install/install-unix.sh', /\|\|\s*true/, 'must not hide copy failures');
 need('rdap-q-skill/install/install-unix.sh', /SKILL\.md/, 'must verify the staged skill before swapping');
-need('.gitignore', /^\.code-dr\/$/m, 'diagnostic artifacts must be ignored');
+need('.gitignore', /^\.rdapq-pack-state\.json$/m, 'pack bookkeeping must be ignored');
 
 // Metadata must not name listings or schemas that do not exist. Both were
 // invented once: catalog ids for catalogs RDAP-Q is not in, and $schema URLs
