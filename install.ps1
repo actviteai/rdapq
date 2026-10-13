@@ -37,7 +37,13 @@ if (-not (Test-Path -LiteralPath $Skill) -or -not (Test-Path -LiteralPath $Cli))
 
 $Node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $Node) {
-    Write-Error "Node.js >= 18 is required. Install Node, then re-run .\install.ps1 or use npx rdap-q."
+    Write-Error "Node.js >= 22 is required. Install Node, then re-run .\install.ps1 or use npx rdap-q."
+    exit 1
+}
+
+$NodeMajor = [int](& node -p "process.versions.node.split('.')[0]")
+if ($NodeMajor -lt 22) {
+    Write-Error "Node.js >= 22 is required (found $(& node -v))."
     exit 1
 }
 
