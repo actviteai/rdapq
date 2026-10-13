@@ -103,6 +103,7 @@ This package is not in the Anthropic, xAI, or GitHub Copilot catalogs. Do not us
 | **Goose** | `--goose` | `~/.config/goose/.goosehints` | `.goosehints` | no slash command; hints load when the Developer extension is on |
 | **Cline** | `--cline` | `~/.cline/rules/rdapq.md` | `.clinerules/rdapq.md` | rules load with the workspace; there is no marketplace entry |
 | **Hermes Agent** | `--hermes` | `~/.hermes/skills/software-development/rdap-q/` | none; see below | `/rdap-q`, or when the request matches the skill's description |
+| **NeMo Agent Toolkit** (framework) | `--nemo` | the engine under `~/.rdapq/`; prints the `pip install` step, never runs it | none | `rdapq__*` tools in a workflow YAML; needs Node 22 on the host; see [below](#nvidia-nemo-agent-toolkit-framework-integration) |
 
 `CURSOR_HOME`, `CLAUDE_HOME`, `COPILOT_HOME`, `GROK_HOME`, `GEMINI_HOME`, `GOOSE_HOME`, `CLINE_HOME`, `AGENTS_HOME`, and `HERMES_HOME` override those directories. Hermes on Windows defaults to `%LOCALAPPDATA%\hermes`, as Hermes itself does.
 
@@ -158,7 +159,7 @@ nat run --config_file rdapq/integrations/nemo/examples/workflow.yaml --input "<t
 
 Caveats:
 
-- The host needs **Node.js 22 or newer**, because the tools run the Node engine. Python 3.11 to 3.13 and NeMo Agent Toolkit 1.8 or newer (tested with 1.9).
+- The host needs **Node.js 22 or newer**, because the tools run the Node engine. Python 3.11 to 3.13 and NeMo Agent Toolkit 1.8 or newer (CI tests 1.8 and the latest release).
 - `install --nemo` never runs pip. It installs the engine and prints the commands, because pip-installing into an environment you did not choose breaks PEP 668 systems. `--all` leaves NeMo out; name it.
 - RDAP-Q only measures. A NeMo agent also needs tools that read and edit files and run commands, from your own workflow.
 - `rdapq-nat` is not on PyPI yet, and NeMo has no catalog to list it in; install it from a clone.

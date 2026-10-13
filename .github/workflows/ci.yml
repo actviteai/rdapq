@@ -24,6 +24,23 @@ jobs:
       - name: Test install, packaging, and version consistency
         run: npm test
 
+  # The plugin marketplace route (.claude-plugin/) is what Claude Code, Codex,
+  # Copilot, and Grok install from. Run Claude Code's own validator on it.
+  # Pinned so a validator change shows up as a reviewed bump, not a red main.
+  claude-plugin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: claude plugin validate .
+        env:
+          CLAUDE_CONFIG_DIR: ${{ runner.temp }}/claude
+          DISABLE_TELEMETRY: "1"
+          DISABLE_AUTOUPDATER: "1"
+        run: npx --yes @anthropic-ai/claude-code@2.1.296 plugin validate .
+
   # integrations/nemo: the rdapq-nat pip package for NVIDIA NeMo Agent Toolkit.
   # Every leg drives the real engine, so each needs Node too.
   nemo:
@@ -42,6 +59,11 @@ jobs:
           - name: NeMo Agent Toolkit
             python: "3.12"
             install: python -m pip install "./integrations/nemo[agents,test]"
+            pythonpath: ""
+          # The oldest toolkit pyproject.toml allows (nvidia-nat-core>=1.8).
+          - name: NeMo Agent Toolkit 1.8
+            python: "3.12"
+            install: python -m pip install "./integrations/nemo[agents,test]" "nvidia-nat-core==1.8.*" "nvidia-nat-langchain[openai,nvidia]==1.8.*"
             pythonpath: ""
     name: nemo (${{ matrix.name }})
     steps:

@@ -8,7 +8,7 @@ Each tool runs the Node engine (`rdapq.js`), the same file every other harness u
 
 ## Requirements
 
-- Python 3.11 to 3.13, and NeMo Agent Toolkit 1.8 or newer (tested with 1.9.0).
+- Python 3.11 to 3.13, and NeMo Agent Toolkit 1.8 or newer. CI tests 1.8 and the latest release.
 - **Node.js 22 or newer** on the host where the tools run, plus the engine. The usual source is the RDAP-Q installer:
 
   ```bash

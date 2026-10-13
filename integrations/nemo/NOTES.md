@@ -21,7 +21,7 @@ Rules from `FunctionDescriptor` / `FunctionInfo.create` in [`function_info.py`][
 - Use `Annotated[T, Field(description=...)]` for per-argument descriptions. Plain parameters reach the model without one. `Literal[...]` becomes a JSON `enum`.
 - **A tool function must take exactly one parameter or more.** A zero-argument function fails with `ValueError: single_fn must have exactly one parameter`, and a parameter named `_` fails because Pydantic rejects leading underscores. `gate` and `state` therefore take one field-less model (`NoInput`), which the model sees as `{"properties": {}}`. *Verified.*
 - Inner functions must be `async def` (a plain `def` raises `Invalid workflow function`).
-- 1.9 evaluates string annotations (`eval_str=True`, CHANGELOG #2115); 1.8 does not. `register.py` therefore does not use `from __future__ import annotations`. Only 1.9 was run.
+- 1.9 evaluates string annotations (`eval_str=True`, CHANGELOG #2115); 1.8 does not. `register.py` therefore does not use `from __future__ import annotations`.
 
 ## Discovery
 
@@ -49,7 +49,7 @@ From [`react_agent/register.py`][react-register], [`tool_calling_agent/register.
 
 ## Not verified
 
-- NeMo Agent Toolkit 1.8 was not run; the 1.8 notes above come from the docs, the source diff between the `v1.8.0` and `v1.9.0` tags, and the CHANGELOG.
+- On NeMo Agent Toolkit 1.8.0 only the test suite was run (20 passed; CI keeps a 1.8 leg). The 1.8 notes above still come from the docs, the source diff between the `v1.8.0` and `v1.9.0` tags, and the CHANGELOG.
 - Only Linux and Python 3.12 were run. On Windows a timeout stops `node` but not the commands `check` started (POSIX uses a process group).
 
 <!-- links: all returned HTTP 200 on 2026-10-13 -->
