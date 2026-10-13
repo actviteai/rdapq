@@ -426,3 +426,22 @@ test('task commands never use the RDAP-Q home as a task directory', () => {
   const mem = rdapq(home, ['memory', 'stats'], { env });
   assert.equal(mem.code, 0, mem.err);
 });
+
+test('memory ids are never reused, even when the random part collides', (t) => {
+  const root = fixture();
+  const crypto = require('node:crypto');
+  const real = crypto.randomBytes;
+  // The first three draws all come back abcd: the second add must skip past the used id.
+  let draws = 0;
+  t.mock.method(crypto, 'randomBytes', (size) => (draws++ < 3 ? Buffer.from([0xab, 0xcd]) : real(size)));
+  const add = (fact, scope = 'project') => rdapq(root, ['memory', 'add', '--class', 'OBSERVED', '--fact', fact, '--evidence', 'e', '--scope', scope]);
+  const ids = [add('first fact'), add('second fact'), add('a global fact', 'global')].map((r) => {
+    assert.equal(r.code, 0, r.err);
+    return /M-\d{8}-[0-9a-f]+/.exec(r.out)[0];
+  });
+  assert.equal(new Set(ids).size, 3, ids.join(' '));
+  assert.match(ids[0], /-abcd$/);
+  assert.match(rdapq(root, ['memory', 'stats']).out, /project: 2 ACTIVE of 2/);
+  assert.match(rdapq(root, ['memory', 'search', 'first']).out, new RegExp(ids[0]));
+  assert.match(rdapq(root, ['memory', 'search', 'second']).out, new RegExp(ids[1]));
+});
