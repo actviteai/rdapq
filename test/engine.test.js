@@ -392,3 +392,37 @@ test('state --json is machine-readable, matches the gate, and never writes the l
   assert.equal(done.lastCheck.oracles.repo.observed, 'pass');
   assert.match(rdapq(root, ['state']).out, /^risk HIGH, depth lean, rounds 2\/3/, 'plain state is unchanged');
 });
+
+test('start refuses a directory that is not a git repository, and writes nothing', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rdapq-nogit-'));
+  const r = rdapq(dir, ['start', '--risk', 'LOW', '--files', 'a.js', '--run', 'true']);
+  assert.equal(r.code, 2);
+  assert.match(r.err, /is not inside a git repository/);
+  assert.equal(fs.existsSync(path.join(dir, '.rdapq')), false);
+});
+
+test('start refuses a git repository with no commits, and writes nothing', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rdapq-nocommit-'));
+  git(dir, 'init', '-q');
+  const r = rdapq(dir, ['start', '--risk', 'LOW', '--files', 'a.js', '--run', 'true']);
+  assert.equal(r.code, 2);
+  assert.match(r.err, /has no commits yet/);
+  assert.equal(fs.existsSync(path.join(dir, '.rdapq')), false);
+});
+
+test('task commands never use the RDAP-Q home as a task directory', () => {
+  // The home directory, outside any repository: <home>/.rdapq is $RDAPQ_HOME.
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'rdapq-home-'));
+  const rdapqHome = path.join(home, '.rdapq');
+  fs.mkdirSync(path.join(rdapqHome, 'memory'), { recursive: true });
+  const env = { ...process.env, HOME: home, USERPROFILE: home, RDAPQ_HOME: rdapqHome };
+  for (const args of [['start', '--risk', 'LOW', '--files', 'a.js', '--run', 'true'], ['note', 'decision', 'x'], ['claim', 'x'], ['gate'], ['check'], ['state']]) {
+    const r = rdapq(home, args, { env });
+    assert.equal(r.code, 2, `${args[0]}: ${r.out}`);
+    assert.match(r.err, /is not a project: its \.rdapq\/ is the RDAP-Q home/, args[0]);
+  }
+  assert.deepEqual(fs.readdirSync(rdapqHome), ['memory']);
+  // Memory commands still work from anywhere; they never touch a task.
+  const mem = rdapq(home, ['memory', 'stats'], { env });
+  assert.equal(mem.code, 0, mem.err);
+});

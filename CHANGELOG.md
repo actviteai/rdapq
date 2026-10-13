@@ -13,6 +13,7 @@ Changes on `main` that are not in a release yet. npm `latest` is 1.4.0; this tre
 
 ### Fixed
 
+- Task commands refuse to treat the RDAP-Q home as a project: run from `~` (outside any repository), `start` used to write `oracles.json` and `state.jsonl` into `~/.rdapq`, beside memory and the installed skill. `start` also refuses a directory that is not a git repository, or a repository with no commits, before writing anything: without a base commit no task could reach COMPLETE.
 - The eval's `playbooksRead`, `stateWrites`, and state footprint measure 2.x runs; they only knew the 1.x layout.
 - `start --depth standard` is rejected; only `lean` and `full` exist.
 - `install.sh` and `install.ps1` require Node.js 22, matching `engines.node`.
