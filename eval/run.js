@@ -203,6 +203,8 @@ function claimed(final) {
 
 function terminalState(final) {
   const found = TERMINALS.filter((t) => new RegExp(`\\b${t}\\b`).test(final));
+  // Legacy detection only: the 1.x and 2.0.0 tools told the agent to say this
+  // on COMPLETE. Newer tools do not, but stored transcripts still contain it.
   if (/Vibe Code Build complete\./.test(final) && !found.includes('COMPLETE')) found.push('COMPLETE');
   return found;
 }

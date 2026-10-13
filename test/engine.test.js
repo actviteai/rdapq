@@ -67,6 +67,8 @@ test('a real fix with an importing test reaches COMPLETE', () => {
   const g = rdapq(root, ['gate']);
   assert.equal(g.code, 0, g.out);
   assert.match(g.out, /COMPLETE/);
+  assert.match(g.out, /^Report exactly this terminal state: COMPLETE\.$/m);
+  assert.doesNotMatch(g.out, /Vibe/i, 'the gate names the state; it adds no catchphrase');
 });
 
 test('unplanned files fail the repo oracle until the plan is amended with a reason', () => {
