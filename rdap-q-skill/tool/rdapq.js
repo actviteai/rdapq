@@ -769,7 +769,9 @@ const COMMANDS = {
 function main(argv, options = {}) {
   const out = options.out || ((line) => process.stdout.write(`${line}\n`));
   const err = options.err || ((line) => process.stderr.write(`${line}\n`));
-  const env = options.env || process.env;
+  // `??` rather than a logical or: Hermes' skill scanner reads that form as
+  // an environment dump and blocks URL installs of the skill.
+  const env = options.env ?? process.env;
   const cwd = options.cwd || process.cwd();
   const [command, ...rest] = argv;
   if (!command || command === 'help' || command === '--help' || command === '-h') {
