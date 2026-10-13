@@ -310,3 +310,29 @@ test('check --before after editing source is flagged', () => {
   rdapq(root, ['check']);
   assert.match(rdapq(root, ['gate']).out, /repro is partial/);
 });
+
+test('depth is lean or full, from --depth or .rdapq/depth, and nothing else', () => {
+  const root = fixture();
+  const begin = (...extra) => rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...extra]);
+  const depth = () => JSON.parse(fs.readFileSync(path.join(root, '.rdapq', 'oracles.json'), 'utf8')).depth;
+
+  assert.equal(begin().code, 0);
+  assert.equal(depth(), 'lean');
+  assert.equal(begin('--depth', 'full').code, 0);
+  assert.equal(depth(), 'full');
+
+  const ghost = begin('--depth', 'standard');
+  assert.equal(ghost.code, 2);
+  assert.match(ghost.err, /--depth must be lean\|full$/);
+  assert.equal(depth(), 'full', 'a rejected start must not rewrite the plan');
+
+  fs.writeFileSync(path.join(root, '.rdapq', 'depth'), 'full\n');
+  assert.equal(begin().code, 0);
+  assert.equal(depth(), 'full');
+  fs.writeFileSync(path.join(root, '.rdapq', 'depth'), 'standard\n');
+  const preset = begin();
+  assert.equal(preset.code, 2);
+  assert.match(preset.err, /\.rdapq\/depth says "standard"; it must be lean or full/);
+  assert.equal(begin('--depth', 'lean').code, 0, '--depth overrides a bad preset');
+  assert.equal(depth(), 'lean');
+});

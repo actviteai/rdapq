@@ -20,7 +20,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const RISKS = ['LOW', 'MODERATE', 'HIGH', 'CRITICAL'];
-const DEPTHS = ['lean', 'standard', 'full'];
+const DEPTHS = ['lean', 'full'];
 const REQUIRED = {
   LOW: ['runtime', 'repo'],
   MODERATE: ['runtime', 'repo'],
@@ -326,7 +326,9 @@ function cmdStart(root, argv, out) {
   const depthFile = path.join(taskPaths(root).dir, 'depth');
   const preset = fs.existsSync(depthFile) ? fs.readFileSync(depthFile, 'utf8').trim() : '';
   const depth = f.depth ? String(f.depth) : preset || 'lean';
-  if (!DEPTHS.includes(depth)) throw new UsageError(`--depth must be ${DEPTHS.join('|')}`);
+  if (!DEPTHS.includes(depth)) {
+    throw new UsageError(f.depth ? `--depth must be ${DEPTHS.join('|')}` : `.rdapq/depth says "${depth}"; it must be ${DEPTHS.join(' or ')}`);
+  }
   const { dir, oracles, log } = taskPaths(root);
   const existing = fs.existsSync(oracles) ? readJson(oracles) : null;
   const head = git(root, ['rev-parse', 'HEAD']);
@@ -738,7 +740,7 @@ function hookStop(root, out, stdin) {
 const HELP = `RDAP-Q engine
 
   start --risk LOW|MODERATE|HIGH|CRITICAL --files a,b --run "<cmd>" [--run "<cmd>"]
-        [--repro "<cmd>" | --no-defect] [--depth lean|standard|full]
+        [--repro "<cmd>" | --no-defect] [--depth lean|full]
   plan --add a,b [--drop c] --why "<reason>"
   check [--before]          run the oracles and log the result (--before: run the repro first)
   gate [--json]             name the terminal state; exit 0 COMPLETE, 3 CONTINUE, 1 otherwise
