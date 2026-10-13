@@ -1,50 +1,23 @@
 # RDAP-Q: Research-Driven Adaptive Planning with Quality Gates
-### Universal Autonomous AI Agent Engineering Protocol & Marketplace Skill
 
 [![CI](https://github.com/coldcanuk/rdapq/actions/workflows/ci.yml/badge.svg)](https://github.com/coldcanuk/rdapq/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/coldcanuk/rdapq)
 [![npm](https://img.shields.io/npm/v/rdap-q.svg)](https://www.npmjs.com/package/rdap-q)
-[![Command](https://img.shields.io/badge/Command-%2Frdapq-purple.svg)](https://github.com/coldcanuk/rdapq)
-[![Marketplace: Universal](https://img.shields.io/badge/Marketplace-Ready-orange.svg)](https://github.com/coldcanuk/rdapq/blob/main/marketplace.json)
-[![Codex](https://img.shields.io/badge/OpenAI%20Codex-Supported-green.svg)](#in-harness-marketplace-installation)
-[![Grok](https://img.shields.io/badge/xAI%20Grok-Supported-blue.svg)](#in-harness-marketplace-installation)
-[![Copilot](https://img.shields.io/badge/GitHub%20Copilot-Supported-darkviolet.svg)](#in-harness-marketplace-installation)
-[![Antigravity](https://img.shields.io/badge/Google%20Antigravity-Supported-red.svg)](#in-harness-marketplace-installation)
-[![Goose](https://img.shields.io/badge/Block%20Goose-Supported-teal.svg)](#in-harness-marketplace-installation)
-[![Claude](https://img.shields.io/badge/Anthropic%20Claude-Supported-coral.svg)](#in-harness-marketplace-installation)
-[![Cline](https://img.shields.io/badge/Cline%20%26%20Roo-Supported-yellow.svg)](#in-harness-marketplace-installation)
-[![Cursor](https://img.shields.io/badge/Cursor-Supported-black.svg)](#in-harness-marketplace-installation)
+
+Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, and Cline. See [Harness install](#in-harness-marketplace-installation).
 
 ---
 
-## <a id="description"></a> 📌 Description
+## <a id="description"></a> Description
 
 > **RDAP-Q: Research-Driven Adaptive Planning with Quality Gates** — an evidence-first protocol and skill for AI coding agents in **Codex, Grok, Copilot, Antigravity, Goose, Claude, Cline, and Cursor**. A bundled tool runs the checks and names the result, so the model never grades its own work.
 
 This GitHub tree is protocol **2.0.0**. It is on `main` and is not published to npm: the 2.0 eval ship gate did not pass, so there is no `rdap-q@2.0.0` registry package and no `v2.0.0` git tag. The npm package [`rdap-q`](https://www.npmjs.com/package/rdap-q) `latest` is **1.4.0** (the 1.x protocol). Confirm with `npm view rdap-q version`. <!-- keep-version -->
 
-<!-- Machine-Readable Structured Metadata (Schema.org / JSON-LD for Crawlers & Robots) -->
-```json
-{
-  "@context": "https://schema.org",
-  "@type": "SoftwareSourceCode",
-  "name": "RDAP-Q",
-  "alternateName": "Research-Driven Adaptive Planning with Quality Gates",
-  "version": "2.0.0",
-  "description": "Evidence-first engineering protocol for AI coding agents. A bundled tool runs the checks and names the result, so the model never grades its own work.",
-  "codeRepository": "https://github.com/coldcanuk/rdapq",
-  "license": "https://www.gnu.org/licenses/gpl-3.0",
-  "programmingLanguage": ["JavaScript", "Markdown", "Shell", "PowerShell", "JSON"],
-  "applicationCategory": "DeveloperApplication",
-  "operatingSystem": "Linux, macOS, Windows",
-  "keywords": "ai-agent, agent-skills, openai-codex, xai-grok, github-copilot, google-antigravity, block-goose, anthropic-claude, claude-code, cline, roo-code, cursor, quality-gates, evidence-first, autonomous-agent, slash-command"
-}
-```
-
 ---
 
-## <a id="overview"></a> 🚀 Overview
+## <a id="overview"></a> Overview
 
 Coding agents often say "done" when they are not. They grade their own work, and a self-grade is an opinion. RDAP-Q moves that decision into code: **the model proposes, the tool decides.**
 
@@ -68,28 +41,28 @@ The agent reads `SKILL.md` (about 1.2k tokens), plans the change, and then drive
 
 ---
 
-## <a id="table-of-contents"></a> 📑 Table of Contents
+## <a id="table-of-contents"></a> Table of Contents
 
-- [📌 Description](#description)
-- [🚀 Overview](#overview)
-- [🧭 How it works](#system-architecture)
-- [📦 Harness install](#in-harness-marketplace-installation)
-- [⚡ Install](#npm-npx-installation)
-- [📜 Local clone](#universal-install-scripts)
-- [🔄 Update](#update)
-- [🔁 Weekly harness audit](#harness-audit)
-- [⚡ Commands](#canonical-commands)
-- [🎯 Oracles and gates](#oracles)
-- [💾 Task log and memory](#storage-and-persistence-model)
-- [📊 Eval](#eval)
-- [🧩 Directory Structure](#directory-structure)
-- [❓ FAQ](#faq)
-- [📄 License](#license)
-- [🤝 Contributing](#contributing)
+- [Description](#description)
+- [Overview](#overview)
+- [How it works](#system-architecture)
+- [Harness install](#in-harness-marketplace-installation)
+- [Install](#npm-npx-installation)
+- [Local clone](#universal-install-scripts)
+- [Update](#update)
+- [Weekly harness audit](#harness-audit)
+- [Commands](#canonical-commands)
+- [Oracles and gates](#oracles)
+- [Task log and memory](#storage-and-persistence-model)
+- [Eval](#eval)
+- [Directory Structure](#directory-structure)
+- [FAQ](#faq)
+- [License](#license)
+- [Contributing](#contributing)
 
 ---
 
-## <a id="system-architecture"></a> 🧭 How it works
+## <a id="system-architecture"></a> How it works
 
 The host model is the control plane; RDAP-Q runs no server. `bin/rdapq.js` is the only installer, and it also forwards task commands to the engine. `install.sh` and `install.ps1` refuse a piped launch and then exec that CLI. Personal harness files are created when missing and are not replaced unless you pass `--force` (the previous file is kept as `*.rdapq-backup`). Skill trees are staged and renamed into place, so a failed copy cannot delete a working install.
 
@@ -111,7 +84,7 @@ With `init --hook`, Claude Code also gets a Stop hook: while an RDAP-Q task's ga
 
 ---
 
-## <a id="in-harness-marketplace-installation"></a> 📦 Harness install
+## <a id="in-harness-marketplace-installation"></a> Harness install
 
 This package is not in the Anthropic, xAI, or GitHub Copilot catalogs. Do not use `gh extension install`, a VS Code extension search, or `goose toolkit add`. Those commands do not install RDAP-Q.
 
@@ -155,7 +128,7 @@ That is optional. It is not required for `install --claude` or `init`.
 
 ---
 
-## <a id="npm-npx-installation"></a> ⚡ Install
+## <a id="npm-npx-installation"></a> Install
 
 Node.js 22 or newer is required. Do not pipe an installer from the network (`curl | bash`, `irm | iex`). A piped script cannot see the skill tree and is refused.
 
@@ -236,7 +209,7 @@ Harness homes can be redirected without touching the real user profile. `RDAPQ_H
 
 ---
 
-## <a id="universal-install-scripts"></a> 📜 Local clone
+## <a id="universal-install-scripts"></a> Local clone
 
 Do not pipe the installer from the network. A piped script cannot see this repository and is refused on purpose.
 
@@ -262,7 +235,7 @@ cd rdapq
 
 ---
 
-## <a id="update"></a> 🔄 Update
+## <a id="update"></a> Update
 
 There is no `update` command. Install the same flags again. A newer skill tree is staged and swapped in only after its `SKILL.md` verifies. The previous tree is removed only after that rename. If the copy fails, the previous tree is put back.
 
@@ -333,7 +306,7 @@ That refreshes `.agents/skills/rdap-q/` and creates any bridge that is missing. 
 
 ---
 
-## <a id="harness-audit"></a> 🔁 Weekly harness audit
+## <a id="harness-audit"></a> Weekly harness audit
 
 Vendor docs move. `scripts/harness-audit/check.py` fetches each vendor `llms.txt`, then the skills and rules pages linked from it, and checks that the paths in `lib/installer.js` and this README are still on those pages. A passing run does not call a model. If a path disappears, it writes `reports/harness-audit/review-prompt.md` for a local model. That directory is gitignored.
 
@@ -346,7 +319,7 @@ The weekly script is what you cron. It does not use Grok cloud credits. Set `RDA
 
 ---
 
-## <a id="canonical-commands"></a> ⚡ Commands
+## <a id="canonical-commands"></a> Commands
 
 In the agent:
 
@@ -375,7 +348,7 @@ The engine, run by the agent or by you (`node .agents/skills/rdap-q/tool/rdapq.j
 
 ---
 
-## <a id="oracles"></a> 🎯 Oracles and gates
+## <a id="oracles"></a> Oracles and gates
 
 `check` computes five oracles. Each is `pass`, `partial`, `fail`, or not applicable:
 
@@ -399,7 +372,7 @@ Any oracle at `fail` blocks COMPLETE. A check is tied to the plan it ran against
 
 ---
 
-## <a id="storage-and-persistence-model"></a> 💾 Task log and memory
+## <a id="storage-and-persistence-model"></a> Task log and memory
 
 ```
 <repo>/.rdapq/
@@ -417,7 +390,7 @@ The agent never rewrites task files; the tool appends to them. Memory records ar
 
 ---
 
-## <a id="eval"></a> 📊 Eval
+## <a id="eval"></a> Eval
 
 `eval/` measures whether RDAP-Q helps instead of asserting it. Eight small Node tasks (bug fixes, features, a refactor, and two traps whose visible tests pass on a naive fix) each ship hidden tests and a reference solution. `node eval/run.js --self-test` proves the hidden tests fail on the starting code and pass on the reference; `npm test` runs it.
 
@@ -451,7 +424,7 @@ The roadmap's ship gate for 2.0 was a lower false-COMPLETE rate at equal or lowe
 
 ---
 
-## <a id="directory-structure"></a> 🧩 Directory Structure
+## <a id="directory-structure"></a> Directory Structure
 
 ```text
 rdapq/
@@ -475,7 +448,7 @@ rdapq/
 
 ---
 
-## <a id="faq"></a> ❓ Frequently Asked Questions (FAQ)
+## <a id="faq"></a> Frequently Asked Questions (FAQ)
 
 <details>
 <summary><strong>How does RDAP-Q differ from a system prompt that says "run the tests"?</strong></summary>
@@ -511,13 +484,13 @@ The YAML phase playbooks, the 8-dimension self-score, and the ten <code>.rdapq/s
 
 ---
 
-## <a id="license"></a> 📄 License
+## <a id="license"></a> License
 
 This project is licensed under the **GNU General Public License v3.0** (GPL-3.0-or-later). See [LICENSE](LICENSE) for full details.
 
 ---
 
-## <a id="contributing"></a> 🤝 Contributing & Community
+## <a id="contributing"></a> Contributing & Community
 
 Contributions are welcome, especially new harnesses, new eval tasks, and oracle improvements backed by eval results:
 
