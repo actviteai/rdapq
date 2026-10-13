@@ -175,6 +175,26 @@
           "readme": ".clinerules/rdapq.md"
         }
       ]
+    },
+    {
+      "id": "hermes",
+      "indexes": ["https://hermes-agent.nousresearch.com/docs/llms.txt"],
+      "pins": ["https://hermes-agent.nousresearch.com/docs/user-guide/features/skills"],
+      "follow": ["features/skills"],
+      "claims": [
+        {
+          "id": "user-skill",
+          "installer": "path.join(layout.hermes, 'skills', hermes.CATEGORY, hermes.NAME)",
+          "docs": "~/.hermes/skills/",
+          "readme": "~/.hermes/skills/software-development/rdap-q/"
+        },
+        {
+          "id": "home-override",
+          "installer": "env.HERMES_HOME",
+          "docs": "HERMES_HOME",
+          "readme": "HERMES_HOME"
+        }
+      ]
     }
   ]
 }
