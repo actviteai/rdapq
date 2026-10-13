@@ -622,6 +622,19 @@ function loadMemory(file) {
 
 const norm = (s) => String(s).toLowerCase().replace(/\s+/g, ' ').trim();
 
+/**
+ * M-YYYYMMDD-xxxx, unused in either scope. Records are keyed by id (the
+ * latest line per id wins), so a reused id would silently replace another
+ * record. Four hex digits give 65536 ids a day; past 64 misses, widen.
+ */
+function newMemoryId(taken) {
+  const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  for (let attempt = 0; ; attempt += 1) {
+    const id = `M-${day}-${crypto.randomBytes(attempt < 64 ? 2 : 4).toString('hex')}`;
+    if (!taken.has(id)) return id;
+  }
+}
+
 function cmdMemory(root, argv, out, env) {
   const [sub, ...rest] = argv;
   const f = parseFlags(rest);
@@ -642,7 +655,7 @@ function cmdMemory(root, argv, out, env) {
     const cap = scope === 'global' ? MEMORY_CAPS.global : MEMORY_CAPS.project;
     if (active.length >= cap) throw new UsageError(`MEMORY_CAP: ${active.length}/${cap} ACTIVE ${scope} records. Mark stale ones with \`memory stale <id>\` first.`);
     const rec = {
-      id: `M-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${crypto.randomBytes(2).toString('hex')}`,
+      id: newMemoryId(new Set(['project', 'global'].flatMap((s) => loadMemory(memoryFile(home, s, root)).map((r) => r.id)))),
       scope: scope === 'global' ? 'global' : `project:${projectId(root)}`,
       status: 'ACTIVE',
       class: cls,
