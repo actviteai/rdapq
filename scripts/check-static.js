@@ -79,6 +79,31 @@ need('rdap-q-skill/README.md', /SKILL\.md` is the instruction source/, 'README m
   if (/\btool\/|\bplaybooks\//.test(hub)) failures.push('integrations/hermes/SKILL.md must name scripts/ and references/, which a URL install copies');
 }
 
+// NeMo Agent Toolkit: integrations/nemo wraps engine commands as tools, so its
+// tool names and argument choices must stay the engine's, and the example
+// workflow's system prompt must stay the published instructions.md.
+{
+  const engineSrc = read('rdap-q-skill/tool/rdapq.js');
+  const { COMMANDS } = require('../rdap-q-skill/tool/rdapq.js');
+  const register = read('integrations/nemo/src/rdapq_nat/register.py');
+  const quoted = (text, q) => (text.match(new RegExp(`${q}([^${q}]+)${q}`, 'g')) || []).map((s) => s.slice(1, -1));
+  const tools = quoted((/^TOOLS = \(([^)]*)\)/m.exec(register) || [])[1] || '', '"');
+  if (!tools.length) failures.push('integrations/nemo/src/rdapq_nat/register.py: TOOLS not found');
+  for (const tool of tools) {
+    if (!Object.prototype.hasOwnProperty.call(COMMANDS, tool)) failures.push(`integrations/nemo: tool "${tool}" is not an engine command`);
+  }
+  for (const name of ['RISKS', 'NOTE_TYPES']) {
+    const values = quoted((new RegExp(`^const ${name} = \\[([^\\]]*)\\]`, 'm').exec(engineSrc) || [])[1] || '', "'");
+    const literal = `Literal[${values.map((v) => `"${v}"`).join(', ')}]`;
+    if (!values.length || !register.includes(literal)) failures.push(`integrations/nemo: register.py must offer the engine's ${name} as ${literal}`);
+  }
+  const workflow = /^ {2}system_prompt: \|\n((?: {4}.*\n|\n)+)/m.exec(read('integrations/nemo/examples/workflow.yaml'));
+  const inline = workflow ? workflow[1].replace(/^ {4}/gm, '').trim() : '';
+  if (inline !== read('integrations/nemo/instructions.md').trim()) {
+    failures.push('integrations/nemo/examples/workflow.yaml: system_prompt must be instructions.md verbatim');
+  }
+}
+
 // Every file a manifest names must exist.
 for (const [rel, prefix] of [['manifest.json', ''], ['rdap-q-skill/manifest.json', 'rdap-q-skill/']]) {
   const manifest = JSON.parse(read(rel));

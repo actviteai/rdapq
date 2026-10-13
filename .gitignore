@@ -133,6 +133,7 @@ target/
 # Python
 __pycache__/
 *.py[cod]
+*.egg-info/
 *$py.class
 *.so
 .pytest_cache/

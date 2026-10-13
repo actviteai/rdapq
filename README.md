@@ -5,7 +5,7 @@
 [![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/coldcanuk/rdapq)
 [![npm](https://img.shields.io/npm/v/rdap-q.svg)](https://www.npmjs.com/package/rdap-q)
 
-Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. See [Harness install](#in-harness-marketplace-installation).
+Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. Framework: NVIDIA NeMo Agent Toolkit. See [Harness install](#in-harness-marketplace-installation).
 
 ---
 
@@ -145,6 +145,26 @@ Claude Code can also add this repository as a plugin marketplace from inside a s
 
 That is optional. It is not required for `install --claude` or `init`.
 
+### NVIDIA NeMo Agent Toolkit (framework integration)
+
+NeMo Agent Toolkit (`nvidia-nat`, CLI `nat`) is a Python framework, not a chat harness. It has no skills directory and no slash commands: agents are YAML workflows that call Python tools. RDAP-Q ships for it as `rdapq-nat`, a pip package in [`integrations/nemo/`](integrations/nemo/) that registers the engine's commands as one tool group (`rdapq__start`, `__plan`, `__check`, `__gate`, `__claim`, `__note`, `__state`). The tools run the same `rdapq.js`, so the verdict still comes from the engine, not the model.
+
+```bash
+npx --yes github:coldcanuk/rdapq install --nemo     # installs the engine under ~/.rdapq and prints the steps below
+git clone https://github.com/coldcanuk/rdapq.git
+pip install "./rdapq/integrations/nemo[agents]"     # into the environment that runs `nat`
+nat run --config_file rdapq/integrations/nemo/examples/workflow.yaml --input "<task>"
+```
+
+Caveats:
+
+- The host needs **Node.js 22 or newer**, because the tools run the Node engine. Python 3.11 to 3.13 and NeMo Agent Toolkit 1.8 or newer (tested with 1.9).
+- `install --nemo` never runs pip. It installs the engine and prints the commands, because pip-installing into an environment you did not choose breaks PEP 668 systems. `--all` leaves NeMo out; name it.
+- RDAP-Q only measures. A NeMo agent also needs tools that read and edit files and run commands, from your own workflow.
+- `rdapq-nat` is not on PyPI yet, and NeMo has no catalog to list it in; install it from a clone.
+
+See [`integrations/nemo/README.md`](integrations/nemo/README.md) for the tools and settings, and [`integrations/nemo/NOTES.md`](integrations/nemo/NOTES.md) for the toolkit API it relies on.
+
 ---
 
 ## <a id="npm-npx-installation"></a> Install
@@ -153,7 +173,7 @@ Node.js 22 or newer is required. Do not pipe an installer from the network (`cur
 
 `SKILL.md` is the instruction source the agent loads. This README is the human guide.
 
-With no harness flag, `install` configures all nine. Name a harness to leave the others alone. `init` and `install` are separate commands. Do not pass harness flags to `init`.
+With no harness flag, `install` configures all nine chat harnesses. Name a harness to leave the others alone. NeMo Agent Toolkit is only set up when you pass `--nemo`. `init` and `install` are separate commands. Do not pass harness flags to `init`.
 
 Edited harness files are kept. Pass `--force` to replace one. The previous file is saved as `<file>.rdapq-backup`. A file that is kept also gets the new copy beside it as `<file>.rdapq`. Skill trees are copied to a staging directory and renamed into place only after `SKILL.md` is present, so a failed update does not delete a working install.
 
@@ -454,6 +474,7 @@ rdapq/
 ├── lib/installer.js              # installer implementation
 ├── lib/hermes.js                 # Hermes Agent frontmatter render and checks
 ├── integrations/hermes/          # Hermes URL-install copy (generated: npm run sync)
+├── integrations/nemo/            # rdapq-nat: NeMo Agent Toolkit tools (pip package)
 ├── install.sh, install.ps1       # thin wrappers around bin/rdapq.js
 ├── eval/                         # hidden-test eval harness and results
 ├── scripts/                      # version stamping, static checks, harness audit
