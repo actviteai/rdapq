@@ -29,10 +29,16 @@ ban('rdap-q-skill/install/install-unix.sh', /\|\|\s*true/, 'must not hide copy f
 need('rdap-q-skill/install/install-unix.sh', /SKILL\.md/, 'must verify the staged skill before swapping');
 need('.gitignore', /^\.rdapq-pack-state\.json$/m, 'pack bookkeeping must be ignored');
 
+// Metadata nothing reads must stay deleted. Each of these was audited against
+// vendor docs and the harness CLIs on 2026-10-13. A root marketplace.json also
+// breaks Copilot: it reads that file before .claude-plugin/marketplace.json.
+for (const rel of ['skills.json', 'agentskills.json', 'marketplace.json', '.codex/skill.json', '.grok/skill.json', '.grok-plugin', '.agents/plugins']) {
+  if (fs.existsSync(path.join(ROOT, rel))) failures.push(`${rel}: no harness reads it; it was deleted on purpose`);
+}
 // Metadata must not name listings or schemas that do not exist. Both were
 // invented once: catalog ids for catalogs RDAP-Q is not in, and $schema URLs
 // under github.com/agent-skills/spec, which is a 404.
-for (const rel of ['skills.json', 'agentskills.json', 'marketplace.json']) {
+for (const rel of ['plugin.json', '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.claude-plugin/plugin-index.json', 'plugins/rdap-q/plugin.json', 'manifest.json', 'rdap-q-skill/manifest.json']) {
   ban(rel, /"marketplace_identifier"/, 'names a marketplace listing that does not exist');
   ban(rel, /agent-skills\/spec/, 'points at a schema repository that does not exist');
 }
@@ -53,13 +59,34 @@ for (const rel of ['bin/rdapq.js', 'lib/installer.js', 'lib/hermes.js', 'scripts
   }
 }
 
-const pluginPath = path.join(ROOT, '.agents/plugins/rdap-q/plugin.json');
-const plugin = JSON.parse(fs.readFileSync(pluginPath, 'utf8'));
-const base = path.dirname(pluginPath);
-for (const rel of [...(plugin.rules || []), ...(plugin.skills || [])]) {
-  const resolved = path.resolve(base, rel);
-  if (!fs.existsSync(resolved)) {
-    failures.push(`.agents plugin path does not exist: ${rel} -> ${resolved}`);
+// Claude Code plugin manifests: the shape `claude plugin validate` accepts.
+// Skills are "./"-relative directories that contain SKILL.md.
+for (const rel of ['.claude-plugin/plugin.json', 'plugins/rdap-q/plugin.json']) {
+  const plugin = JSON.parse(read(rel));
+  const base = rel === '.claude-plugin/plugin.json' ? ROOT : path.join(ROOT, path.dirname(rel));
+  if (plugin.repository !== undefined && typeof plugin.repository !== 'string') failures.push(`${rel}: repository must be a string`);
+  for (const key of ['rules', 'commands']) {
+    if (plugin[key] !== undefined) failures.push(`${rel}: "${key}" is not a field Claude Code accepts here`);
+  }
+  for (const skill of plugin.skills || []) {
+    if (!String(skill).startsWith('./')) failures.push(`${rel}: skill path ${skill} must start with ./`);
+    else if (!fs.existsSync(path.join(base, skill, 'SKILL.md'))) failures.push(`${rel}: ${skill} has no SKILL.md`);
+  }
+}
+// The root plugin.json is what Copilot and Grok read when the whole repository
+// is installed as a plugin. Neither accepts "rules".
+{
+  const plugin = JSON.parse(read('plugin.json'));
+  if (plugin.rules !== undefined) failures.push('plugin.json: "rules" is not a plugin field');
+  for (const skill of plugin.skills || []) {
+    if (!fs.existsSync(path.join(ROOT, skill, 'SKILL.md'))) failures.push(`plugin.json: ${skill} has no SKILL.md`);
+  }
+}
+{
+  const market = JSON.parse(read('.claude-plugin/marketplace.json'));
+  if (!market.owner || !Array.isArray(market.plugins) || !market.plugins.length) failures.push('.claude-plugin/marketplace.json: needs owner and plugins');
+  for (const entry of market.plugins || []) {
+    if (!fs.existsSync(path.join(ROOT, entry.source || '', 'skills'))) failures.push(`.claude-plugin/marketplace.json: ${entry.name} source ${entry.source} has no skills/`);
   }
 }
 

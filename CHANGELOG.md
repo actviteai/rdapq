@@ -20,6 +20,11 @@ Changes on `main` that are not in a release yet. npm `latest` is 1.4.0; this tre
 - Metadata no longer names invented marketplace ids or a schema repository that does not exist.
 - The gate no longer tells the agent to say "Vibe Code Build complete." The eval still recognizes the phrase in old transcripts.
 
+### Removed
+
+- Metadata files no harness reads, checked against vendor docs and the Claude Code, Codex, Copilot, and Grok CLIs: `skills.json`, `agentskills.json`, the root `marketplace.json`, `.codex/skill.json`, `.grok/skill.json`, `.grok-plugin/`, and `.agents/plugins/rdap-q/plugin.json`. The root `marketplace.json` also broke `copilot plugin marketplace add`, because Copilot reads it before `.claude-plugin/marketplace.json`. The static checks keep these files deleted.
+
 ### Changed
 
+- `.claude-plugin/plugin.json` passes `claude plugin validate`: `repository` is a string, `skills` is `["./rdap-q-skill"]`, and the `rules` and `commands` fields Claude Code rejects are gone. The root `plugin.json` keeps only `name`, `version`, `description`, and `skills`, so a whole-repo install in Copilot or Grok still finds the skill.
 - README: four badges instead of fourteen, no JSON-LD block, no emoji headings. Ten npm keywords instead of 32.

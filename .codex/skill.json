@@ -1,9 +1,0 @@
-{
-  "name": "rdap-q",
-  "version": "2.0.0",
-  "harness": "codex",
-  "rules": "AGENTS.md",
-  "entrypoint": "rdap-q-skill/SKILL.md",
-  "command": "/rdapq",
-  "description": "RDAP-Q engineering protocol for OpenAI Codex agents"
-}

@@ -8,18 +8,9 @@
     "url": "https://github.com/coldcanuk"
   },
   "homepage": "https://github.com/coldcanuk/rdapq",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/coldcanuk/rdapq.git"
-  },
+  "repository": "https://github.com/coldcanuk/rdapq",
   "license": "GPL-3.0-or-later",
-  "commands": [
-    ".claude/commands/rdapq.md"
-  ],
-  "rules": [
-    "CLAUDE.md"
-  ],
   "skills": [
-    "rdap-q-skill/SKILL.md"
+    "./rdap-q-skill"
   ]
 }
