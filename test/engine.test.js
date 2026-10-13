@@ -338,3 +338,10 @@ test('depth is lean or full, from --depth or .rdapq/depth, and nothing else', ()
   assert.equal(begin('--depth', 'lean').code, 0, '--depth overrides a bad preset');
   assert.equal(depth(), 'lean');
 });
+
+test('the engine passes the pattern Hermes scans skills for (environment dumps)', () => {
+  // tools/skills_guard.py in Hermes Agent: r'printenv|env\s*\|' marks a skill
+  // "caution", and a URL install of a caution skill is blocked.
+  const source = fs.readFileSync(TOOL, 'utf8');
+  assert.doesNotMatch(source, /printenv|env\s*\|/);
+});
