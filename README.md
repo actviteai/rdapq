@@ -5,13 +5,13 @@
 [![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/coldcanuk/rdapq)
 [![npm](https://img.shields.io/npm/v/rdap-q.svg)](https://www.npmjs.com/package/rdap-q)
 
-Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, and Cline. See [Harness install](#in-harness-marketplace-installation).
+Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. See [Harness install](#in-harness-marketplace-installation).
 
 ---
 
 ## <a id="description"></a> Description
 
-> **RDAP-Q: Research-Driven Adaptive Planning with Quality Gates** — an evidence-first protocol and skill for AI coding agents in **Codex, Grok, Copilot, Antigravity, Goose, Claude, Cline, and Cursor**. A bundled tool runs the checks and names the result, so the model never grades its own work.
+> **RDAP-Q: Research-Driven Adaptive Planning with Quality Gates** — an evidence-first protocol and skill for AI coding agents in **Codex, Grok, Copilot, Antigravity, Goose, Claude, Cline, Cursor, and Hermes Agent**. A bundled tool runs the checks and names the result, so the model never grades its own work.
 
 This GitHub tree is protocol **2.0.0**. It is on `main` and is not published to npm: the 2.0 eval ship gate did not pass, so there is no `rdap-q@2.0.0` registry package and no `v2.0.0` git tag. The npm package [`rdap-q`](https://www.npmjs.com/package/rdap-q) `latest` is **1.4.0** (the 1.x protocol). Confirm with `npm view rdap-q version`. <!-- keep-version -->
 
@@ -102,8 +102,18 @@ This package is not in the Anthropic, xAI, or GitHub Copilot catalogs. Do not us
 | **Antigravity** | `--antigravity` | `~/.gemini/antigravity-cli/skills/rdap-q/`, `~/.gemini/config/skills/rdap-q/` | `GEMINI.md`, `AGENTS.md`, `.agents/skills/rdap-q/` | `/rdap-q` |
 | **Goose** | `--goose` | `~/.config/goose/.goosehints` | `.goosehints` | no slash command; hints load when the Developer extension is on |
 | **Cline** | `--cline` | `~/.cline/rules/rdapq.md` | `.clinerules/rdapq.md` | rules load with the workspace; there is no marketplace entry |
+| **Hermes Agent** | `--hermes` | `~/.hermes/skills/software-development/rdap-q/` | none; see below | `/rdap-q`, or when the request matches the skill's description |
 
-`CURSOR_HOME`, `CLAUDE_HOME`, `COPILOT_HOME`, `GROK_HOME`, `GEMINI_HOME`, `GOOSE_HOME`, `CLINE_HOME`, and `AGENTS_HOME` override those directories.
+`CURSOR_HOME`, `CLAUDE_HOME`, `COPILOT_HOME`, `GROK_HOME`, `GEMINI_HOME`, `GOOSE_HOME`, `CLINE_HOME`, `AGENTS_HOME`, and `HERMES_HOME` override those directories. Hermes on Windows defaults to `%LOCALAPPDATA%\hermes`, as Hermes itself does.
+
+**Hermes Agent notes.** Hermes skills are user-wide, so `--hermes` writes only the skill tree, with a Hermes frontmatter (`description` that opens with the trigger sentence, `platforms`, `metadata.hermes.tags`, and `requires_toolsets: [terminal]` because the engine runs through the terminal tool). The body names the engine as `${HERMES_SKILL_DIR}/tool/rdapq.js`, which Hermes expands to the installed path. Hermes registers the skill as `/rdap-q`. To type `/rdapq` as in other harnesses, add an alias once:
+
+```bash
+hermes config set quick_commands.rdapq.type alias
+hermes config set quick_commands.rdapq.target /rdap-q
+```
+
+`init` writes no Hermes file. Hermes already reads a repository's `AGENTS.md` (which `init` writes) and, after `hermes skills trust`, the repo's `.agents/skills/rdap-q/`. For a Hermes profile, point `HERMES_HOME` at it: `HERMES_HOME=~/.hermes/profiles/<name> npx --yes github:coldcanuk/rdapq install --hermes`.
 
 User installs never add always-on global rules for harnesses that load skills on demand, so RDAP-Q stays out of sessions that do not invoke it. Global bridges (the Claude command, Cline rules, Goose hints) point at the installed core under `$RDAPQ_HOME`. Earlier releases wrote `~/.codex/AGENTS.md` and `~/.copilot/copilot-instructions.md`; the installer never deletes your files, so remove those by hand if they only contain the RDAP-Q bridge.
 
@@ -111,6 +121,7 @@ User installs never add always-on global rules for harnesses that load skills on
 # This GitHub tree (2.0.0, not on npm):
 npx --yes github:coldcanuk/rdapq install --cursor
 npx --yes github:coldcanuk/rdapq install --codex --claude
+npx --yes github:coldcanuk/rdapq install --hermes
 npx --yes github:coldcanuk/rdapq init
 
 # Released npm package (pin; latest is 1.4.0): <!-- keep-version -->
@@ -134,7 +145,7 @@ Node.js 22 or newer is required. Do not pipe an installer from the network (`cur
 
 `SKILL.md` is the instruction source the agent loads. This README is the human guide.
 
-With no harness flag, `install` configures all eight. Name a harness to leave the others alone. `init` and `install` are separate commands. Do not pass harness flags to `init`.
+With no harness flag, `install` configures all nine. Name a harness to leave the others alone. `init` and `install` are separate commands. Do not pass harness flags to `init`.
 
 Edited harness files are kept. Pass `--force` to replace one. The previous file is saved as `<file>.rdapq-backup`. A file that is kept also gets the new copy beside it as `<file>.rdapq`. Skill trees are copied to a staging directory and renamed into place only after `SKILL.md` is present, so a failed update does not delete a working install.
 
@@ -203,7 +214,7 @@ npm install -g .
 rdapq install --claude
 ```
 
-Harness homes can be redirected without touching the real user profile. `RDAPQ_HOME`, `GEMINI_HOME`, `GOOSE_HOME`, `CLAUDE_HOME`, `CLINE_HOME`, `GROK_HOME`, `COPILOT_HOME`, `CURSOR_HOME`, and `AGENTS_HOME` are all honored.
+Harness homes can be redirected without touching the real user profile. `RDAPQ_HOME`, `GEMINI_HOME`, `GOOSE_HOME`, `CLAUDE_HOME`, `CLINE_HOME`, `GROK_HOME`, `COPILOT_HOME`, `CURSOR_HOME`, `AGENTS_HOME`, and `HERMES_HOME` are all honored.
 
 `npx --yes github:coldcanuk/rdapq` always installs this GitHub tree. `npx --yes rdap-q` installs whatever npm currently tags `latest`.
 
@@ -231,7 +242,7 @@ cd rdapq
 .\install.ps1 -Claude -Force
 ```
 
-`install.sh` and `install.ps1` are wrappers around `node bin/rdapq.js`. With no harness flag they install all eight. `.\install.ps1` has no `status` switch. Use `node .\bin\rdapq.js status`.
+`install.sh` and `install.ps1` are wrappers around `node bin/rdapq.js`. With no harness flag they install all nine. `.\install.ps1` has no `status` switch. Use `node .\bin\rdapq.js status`.
 
 ---
 
@@ -433,6 +444,7 @@ rdapq/
 ├── .github/copilot-instructions.md, .grok/rules.md
 ├── bin/rdapq.js                  # CLI: install, init, status, and task commands
 ├── lib/installer.js              # installer implementation
+├── lib/hermes.js                 # Hermes Agent frontmatter render and checks
 ├── install.sh, install.ps1       # thin wrappers around bin/rdapq.js
 ├── eval/                         # hidden-test eval harness and results
 ├── scripts/                      # version stamping, static checks, harness audit
@@ -469,7 +481,7 @@ Lean depth, the default, is one plan command, the edit, one check, and one gate.
 <summary><strong>How do I override the default storage directory?</strong></summary>
 Set the <code>RDAPQ_HOME</code> environment variable:
 <pre><code>export RDAPQ_HOME=/custom/path/.rdapq</code></pre>
-Per-harness homes use <code>AGENTS_HOME</code> (Codex), <code>CURSOR_HOME</code>, <code>GROK_HOME</code>, <code>COPILOT_HOME</code>, <code>CLAUDE_HOME</code>, <code>CLINE_HOME</code>, <code>GEMINI_HOME</code>, and <code>GOOSE_HOME</code>.
+Per-harness homes use <code>AGENTS_HOME</code> (Codex), <code>CURSOR_HOME</code>, <code>GROK_HOME</code>, <code>COPILOT_HOME</code>, <code>CLAUDE_HOME</code>, <code>CLINE_HOME</code>, <code>GEMINI_HOME</code>, <code>GOOSE_HOME</code>, and <code>HERMES_HOME</code>.
 </details>
 
 <details>

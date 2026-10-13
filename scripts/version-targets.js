@@ -40,10 +40,12 @@ const PROSE_TARGETS = [
 ];
 
 // These must not hardcode a version; they read package.json at runtime.
+// lib/hermes.js renders the Hermes frontmatter `version:` from package.json
+// at install time, so the installed Hermes SKILL.md needs no stamp here.
 // install.sh and install.ps1 do name the minimum Node.js major ("22"): they
 // check Node before it can read package.json. That is not a semver, so the
 // stamp checks ignore it; check-versions.js compares it with engines.node.
-const NO_VERSION = ['bin/rdapq.js', 'lib/installer.js', 'install.sh', 'install.ps1'];
+const NO_VERSION = ['bin/rdapq.js', 'lib/installer.js', 'lib/hermes.js', 'install.sh', 'install.ps1'];
 
 // The installer wrappers that gate on the minimum Node.js major.
 const NODE_GATES = ['install.sh', 'install.ps1'];

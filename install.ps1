@@ -12,6 +12,7 @@ param(
     [switch]$Grok,
     [switch]$Goose,
     [switch]$Cursor,
+    [switch]$Hermes,
     [switch]$GlobalOnly,
     [switch]$Force,
     [switch]$Quiet,
@@ -61,6 +62,7 @@ if ($Help) {
     if ($Grok) { $nodeArgs += "--grok" }
     if ($Goose) { $nodeArgs += "--goose" }
     if ($Cursor) { $nodeArgs += "--cursor" }
+    if ($Hermes) { $nodeArgs += "--hermes" }
     if ($GlobalOnly) { $nodeArgs += "--global-only" }
     if ($Force) { $nodeArgs += "--force" }
     if ($Quiet) { $nodeArgs += "--quiet" }

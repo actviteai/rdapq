@@ -1,0 +1,21 @@
+# Changelog
+
+Changes on `main` that are not in a release yet. npm `latest` is 1.4.0; this tree is 2.0.0 and unreleased (see the README). <!-- keep-version -->
+
+## Unreleased
+
+### Added
+
+- **Hermes Agent (Nous Research).** `install --hermes` (`-Hermes` in `install.ps1`) writes the skill to `$HERMES_HOME/skills/software-development/rdap-q/` (default `~/.hermes`, or `%LOCALAPPDATA%\hermes` on Windows) with a Hermes frontmatter: a description that opens with its trigger sentence, `platforms`, `metadata.hermes.tags`, and `requires_toolsets: [terminal]`. The body names the engine as `${HERMES_SKILL_DIR}/tool/rdapq.js`. `status` reports the Hermes row. `--all` now covers nine harnesses.
+
+### Fixed
+
+- The eval's `playbooksRead`, `stateWrites`, and state footprint measure 2.x runs; they only knew the 1.x layout.
+- `start --depth standard` is rejected; only `lean` and `full` exist.
+- `install.sh` and `install.ps1` require Node.js 22, matching `engines.node`.
+- Metadata no longer names invented marketplace ids or a schema repository that does not exist.
+- The gate no longer tells the agent to say "Vibe Code Build complete." The eval still recognizes the phrase in old transcripts.
+
+### Changed
+
+- README: four badges instead of fourteen, no JSON-LD block, no emoji headings. Ten npm keywords instead of 32.
