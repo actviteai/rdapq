@@ -71,6 +71,31 @@ function taskPaths(root) {
   return { dir, oracles: path.join(dir, 'oracles.json'), log: path.join(dir, 'state.jsonl') };
 }
 
+function samePath(a, b) {
+  const real = (p) => {
+    try {
+      return fs.realpathSync.native(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const [x, y] = [real(a), real(b)];
+  return process.platform === 'win32' ? x.toLowerCase() === y.toLowerCase() : x === y;
+}
+
+// Commands that keep their state in <repo>/.rdapq/.
+const TASK_COMMANDS = new Set(['start', 'plan', 'check', 'gate', 'claim', 'note', 'state']);
+
+/**
+ * Run from the home directory, <repo>/.rdapq/ would be $RDAPQ_HOME itself
+ * (~/.rdapq), where memory and the installed skill live. Never mix the two.
+ */
+function assertTaskRoot(root, env) {
+  if (samePath(taskPaths(root).dir, memoryHome(env))) {
+    throw new UsageError(`${root} is not a project: its .rdapq/ is the RDAP-Q home ($RDAPQ_HOME). Run this from the repository you are changing.`);
+  }
+}
+
 function readJson(file) {
   let text;
   try {
@@ -330,8 +355,15 @@ function cmdStart(root, argv, out) {
     throw new UsageError(f.depth ? `--depth must be ${DEPTHS.join('|')}` : `.rdapq/depth says "${depth}"; it must be ${DEPTHS.join(' or ')}`);
   }
   const { dir, oracles, log } = taskPaths(root);
+  // The repo oracle compares the diff with a base commit; without one no task
+  // can reach COMPLETE, so refuse before writing anything.
+  const head = git(root, ['rev-parse', '--verify', '-q', 'HEAD']);
+  if (!head) {
+    throw new UsageError(git(root, ['rev-parse', '--is-inside-work-tree'])
+      ? `${root} has no commits yet. Commit once so RDAP-Q has a base to compare the change against.`
+      : `${root} is not inside a git repository. Run start from the root of the repository you are changing; RDAP-Q compares the change against its last commit.`);
+  }
   const existing = fs.existsSync(oracles) ? readJson(oracles) : null;
-  const head = git(root, ['rev-parse', 'HEAD']);
   // A new task gets a fresh log and base; --keep re-defines the current task instead.
   if (existing && !f.keep && fs.existsSync(log)) {
     const archive = path.join(dir, 'archive');
@@ -343,7 +375,7 @@ function cmdStart(root, argv, out) {
     version: 2,
     risk,
     depth,
-    base: f.keep && existing && existing.base ? existing.base : head ? head.trim() : null,
+    base: f.keep && existing && existing.base ? existing.base : head.trim(),
     files: list(f.files).map(normalizePath).filter(Boolean),
     run: (f.run || []).filter((r) => r !== true).map(String),
     repro: typeof f.repro === 'string' ? f.repro : null,
@@ -811,7 +843,9 @@ function main(argv, options = {}) {
     return 2;
   }
   try {
-    return handler(repoRoot(cwd), rest, out, env, options.stdin);
+    const root = repoRoot(cwd);
+    if (TASK_COMMANDS.has(command)) assertTaskRoot(root, env);
+    return handler(root, rest, out, env, options.stdin);
   } catch (e) {
     if (e instanceof UsageError) {
       err(`error: ${e.message}`);
