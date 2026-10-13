@@ -479,7 +479,8 @@ rdapq/
 ├── eval/                         # hidden-test eval harness and results
 ├── scripts/                      # version stamping, static checks, harness audit
 ├── test/                         # node:test suites
-├── manifest.json, marketplace.json, package.json, plugin manifests
+├── .claude-plugin/, plugins/rdap-q/  # plugin marketplace (Claude Code, Codex, Copilot, Grok)
+├── manifest.json, package.json
 └── rdap-q-skill/                 # the skill that gets installed
     ├── SKILL.md                  # the protocol (loaded on every /rdapq run)
     ├── tool/rdapq.js             # the engine: start, check, gate, memory, export, hook

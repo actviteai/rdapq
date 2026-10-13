@@ -6,22 +6,17 @@
  */
 
 // [file, path to the version inside the parsed JSON]
+// Only files a harness or this repo's own checks read. Audited 2026-10-13
+// against vendor docs and the Claude Code, Codex, Copilot, and Grok CLIs; the
+// metadata files nothing consumed were deleted (see CHANGELOG).
 const JSON_TARGETS = [
-  ['agentskills.json', ['version']],
-  ['marketplace.json', ['version']],
   ['manifest.json', ['version']],
   ['rdap-q-skill/manifest.json', ['version']],
   ['plugin.json', ['version']],
   ['plugins/rdap-q/plugin.json', ['version']],
-  ['.agents/plugins/rdap-q/plugin.json', ['version']],
-  ['skills.json', ['skills', 0, 'version']],
-  ['.grok/skill.json', ['version']],
-  ['.codex/skill.json', ['version']],
   ['.claude-plugin/plugin.json', ['version']],
   ['.claude-plugin/marketplace.json', ['plugins', 0, 'version']],
-  ['.grok-plugin/marketplace.json', ['plugins', 0, 'version']],
   ['.claude-plugin/plugin-index.json', ['plugins', 'rdap-q', 'version']],
-  ['.grok-plugin/plugin-index.json', ['plugins', 'rdap-q', 'version']],
 ];
 
 // Every semver in these files must be the package version.

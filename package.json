@@ -58,10 +58,7 @@
   "files": [
     "bin",
     "rdap-q-skill",
-    "marketplace.json",
     "manifest.json",
-    "skills.json",
-    "agentskills.json",
     "plugin.json",
     "install.sh",
     "install.ps1",
@@ -74,10 +71,8 @@
     ".goosehints",
     ".claude-plugin",
     ".claude",
-    ".grok-plugin",
     ".github",
     ".grok",
-    ".codex",
     ".agents",
     "plugins"
   ]
