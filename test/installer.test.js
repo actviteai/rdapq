@@ -491,3 +491,52 @@ test('a SKILL.md render that fails leaves the previous skill in place', () => {
   assert.equal(fs.readFileSync(path.join(dest, 'SKILL.md'), 'utf8'), 'OLD');
   assert.deepEqual(fs.readdirSync(path.join(root, 'skills')), ['rdap-q']);
 });
+
+/** A PATH holding only a fake `python3` that exits with `code` (0 = "rdapq_nat imports"). */
+function fakePython(root, code) {
+  const bin = path.join(root, `py-${code}`);
+  fs.mkdirSync(bin, { recursive: true });
+  const exe = path.join(bin, 'python3');
+  fs.writeFileSync(exe, `#!/bin/sh\nexit ${code}\n`);
+  fs.chmodSync(exe, 0o755);
+  return bin;
+}
+
+test('install --nemo installs only the core and prints the pip and workflow setup', () => {
+  const { env, home } = tempLayout();
+  const result = run(['install', '--nemo'], env);
+  assert.equal(result.code, 0, result.err);
+  assert.equal(fs.existsSync(path.join(env.RDAPQ_HOME, 'skills', 'rdap-q', 'tool', 'rdapq.js')), true);
+  assert.match(result.out, /NVIDIA NeMo Agent Toolkit/);
+  assert.match(result.out, /pip install "\.\/rdapq\/integrations\/nemo\[agents\]"/);
+  assert.match(result.out, /_type: rdapq/);
+  assert.match(result.out, /tool_names: \[rdapq\]/);
+  assert.ok(result.out.includes(path.join(env.RDAPQ_HOME, 'skills', 'rdap-q', 'tool', 'rdapq.js')), result.out);
+  // No harness files, and no Python environment, are touched.
+  for (const other of [env.CLAUDE_HOME, env.CURSOR_HOME, env.GROK_HOME, env.COPILOT_HOME, env.CLINE_HOME, env.GEMINI_HOME, env.GOOSE_HOME, env.HERMES_HOME, path.join(home, '.agents')]) {
+    assert.equal(fs.existsSync(other), false, other);
+  }
+});
+
+test('--all and a bare install leave NeMo out; --all --nemo adds it', () => {
+  const { FRAMEWORKS, HARNESS_IDS } = require('../lib/installer');
+  assert.deepEqual([...FRAMEWORKS], ['nemo']);
+  assert.ok(HARNESS_IDS.includes('nemo'));
+  const { env } = tempLayout();
+  assert.doesNotMatch(run(['install', '--all'], env).out, /NeMo/);
+  assert.doesNotMatch(run(['install'], env).out, /NeMo/);
+  const both = run(['install', '--all', '--nemo'], env);
+  assert.equal(both.code, 0, both.err);
+  assert.match(both.out, /Nous Research Hermes Agent/);
+  assert.match(both.out, /NVIDIA NeMo Agent Toolkit/);
+});
+
+test('status reports NeMo from the Python on PATH, best effort', { skip: !POSIX && 'needs a POSIX shell' }, () => {
+  const { env, root } = tempLayout();
+  const found = run(['status'], { ...env, PATH: fakePython(root, 0) });
+  assert.match(found.out, /\[✓\] NVIDIA NeMo Agent Toolkit\s*: Installed \(python3 can import rdapq_nat\)/);
+  const missing = run(['status'], { ...env, PATH: fakePython(root, 1) });
+  assert.match(missing.out, /\[✗\] NVIDIA NeMo Agent Toolkit\s*: Not detected in python3; a virtual environment may have it/);
+  const none = run(['status'], { ...env, PATH: path.join(root, 'empty') });
+  assert.match(none.out, /\[✗\] NVIDIA NeMo Agent Toolkit\s*: Not detected \(no python3 or python on PATH\)/);
+});

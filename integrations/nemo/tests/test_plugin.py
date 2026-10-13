@@ -1,0 +1,97 @@
+"""The NeMo Agent Toolkit plugin. Skipped unless nvidia-nat-core is importable."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+pytest.importorskip("nat.plugin_api", reason="nvidia-nat-core is not installed")
+
+from nat.builder.workflow_builder import WorkflowBuilder  # noqa: E402  (the toolkit's own docs test with it)
+from nat.runtime.loader import PluginTypes  # noqa: E402
+from nat.runtime.loader import discover_and_register_plugins  # noqa: E402
+from nat.runtime.loader import discover_entrypoints  # noqa: E402
+
+from rdapq_nat.register import RdapqConfig  # noqa: E402
+from rdapq_nat.register import TOOLS  # noqa: E402
+
+from conftest import TEST_CMD  # noqa: E402
+from conftest import fix  # noqa: E402
+
+
+def test_entry_point_is_discovered_and_registers_the_group():
+    """A plugin that fails to import is only logged by the loader, so check it explicitly."""
+    from nat.cli.type_registry import GlobalTypeRegistry
+
+    assert "rdapq" in {ep.name for ep in discover_entrypoints(PluginTypes.COMPONENT)}
+    discover_and_register_plugins(PluginTypes.COMPONENT)
+    assert GlobalTypeRegistry.get().get_function_group(RdapqConfig).config_type is RdapqConfig
+    assert RdapqConfig.static_type() == "rdapq"
+
+
+async def test_group_exposes_every_tool_named_after_the_yaml_key(buggy_repo, engine_path):
+    async with WorkflowBuilder() as b:
+        group = await b.add_function_group("rdapq", RdapqConfig(repo_dir=str(buggy_repo), rdapq_js_path=engine_path))
+        assert sorted(await group.get_accessible_functions()) == sorted(f"rdapq__{t}" for t in TOOLS)
+
+
+async def test_tool_schemas_are_what_the_model_needs():
+    """The JSON schema an LLM sees for each tool (what tool_calling_agent passes to bind_tools)."""
+    pytest.importorskip("nat.plugins.langchain", reason="nvidia-nat-langchain is not installed")
+    discover_and_register_plugins(PluginTypes.COMPONENT)
+    from langchain_core.utils.function_calling import convert_to_openai_tool  # noqa: PLC0415
+    from nat.plugin_api import LLMFrameworkEnum  # noqa: PLC0415
+
+    async with WorkflowBuilder() as b:
+        await b.add_function_group("rdapq", RdapqConfig(rdapq_js_path=str(Path(__file__).resolve().parents[3] / "rdap-q-skill" / "tool" / "rdapq.js")))
+        tools = {t.name: convert_to_openai_tool(t)["function"] for t in await b.get_tools(["rdapq"], wrapper_type=LLMFrameworkEnum.LANGCHAIN)}
+    assert set(tools) == {f"rdapq__{t}" for t in TOOLS}
+    start = tools["rdapq__start"]["parameters"]
+    assert start["required"] == ["risk", "files", "run"]
+    assert start["properties"]["risk"]["enum"] == ["LOW", "MODERATE", "HIGH", "CRITICAL"]
+    assert tools["rdapq__note"]["parameters"]["properties"]["type"]["enum"] == ["assumption", "decision", "risk", "blocker", "question"]
+    assert tools["rdapq__plan"]["parameters"]["required"] == ["why"]
+    assert tools["rdapq__gate"]["parameters"]["properties"] == {}
+    assert tools["rdapq__state"]["parameters"]["properties"] == {}
+    assert "never claim COMPLETE" in tools["rdapq__gate"]["description"]
+    for name, spec in tools.items():
+        assert spec["description"] and spec["description"] != name, f"{name} has no description"
+
+
+async def test_tools_drive_the_engine_from_start_to_complete(buggy_repo, engine_path):
+    async with WorkflowBuilder() as b:
+        await b.add_function_group("rdapq", RdapqConfig(repo_dir=str(buggy_repo), rdapq_js_path=engine_path, include=list(TOOLS)))
+        tool = {t: await b.get_function(f"rdapq__{t}") for t in TOOLS}
+
+        started = await tool["start"].ainvoke({"risk": "LOW", "files": ["src/add.js"], "run": [TEST_CMD]})
+        assert started["ok"], started
+        await tool["check"].ainvoke({})
+        assert (await tool["gate"].ainvoke({}))["verdict"] == "CONTINUE"
+        await tool["note"].ainvoke({"type": "decision", "text": "fix the operator, not the test"})
+        await tool["plan"].ainvoke({"why": "keep the plan honest", "drop": ["README.md"]})
+        await tool["claim"].ainvoke({"text": "node:test ships with Node 22", "source": "https://nodejs.org/api/test.html", "verified": True})
+        fix(buggy_repo)
+        await tool["check"].ainvoke({"before": False})
+        done = await tool["gate"].ainvoke({})
+        state = await tool["state"].ainvoke({})
+
+    assert done["verdict"] == "COMPLETE", done
+    assert state["gate"]["verdict"] == "COMPLETE"
+    assert state["notes"][-1]["text"] == "fix the operator, not the test"
+    kinds = [json.loads(line)["kind"] for line in (buggy_repo / ".rdapq" / "state.jsonl").read_text().splitlines()]
+    assert kinds == ["start", "check", "gate", "note", "plan", "claim", "check", "gate"]
+
+
+async def test_bad_tool_input_is_rejected_before_the_engine_runs(buggy_repo, engine_path):
+    async with WorkflowBuilder() as b:
+        await b.add_function_group("rdapq", RdapqConfig(repo_dir=str(buggy_repo), rdapq_js_path=engine_path, include=["start"]))
+        start = await b.get_function("rdapq__start")
+        with pytest.raises(Exception, match="validation error"):
+            await start.ainvoke({"risk": "SEVERE", "files": [], "run": []})
+    assert not (buggy_repo / ".rdapq").exists()
+
+
+async def test_missing_engine_fails_at_build_time(tmp_path):
+    async with WorkflowBuilder() as b:
+        with pytest.raises(Exception, match="engine not found"):
+            await b.add_function_group("rdapq", RdapqConfig(rdapq_js_path=str(tmp_path / "nope.js")))

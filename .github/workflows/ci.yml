@@ -23,3 +23,38 @@ jobs:
         run: node --check bin/rdapq.js && node --check lib/installer.js
       - name: Test install, packaging, and version consistency
         run: npm test
+
+  # integrations/nemo: the rdapq-nat pip package for NVIDIA NeMo Agent Toolkit.
+  # Every leg drives the real engine, so each needs Node too.
+  nemo:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # No toolkit at all: the engine wrapper must work on its own.
+          - name: wrapper only
+            python: "3.11"
+            install: python -m pip install pytest pytest-asyncio
+            pythonpath: integrations/nemo/src
+          # nvidia-nat-core plus LangChain: discovery, tool schemas, and a
+          # tool_calling_agent run with a scripted model.
+          - name: NeMo Agent Toolkit
+            python: "3.12"
+            install: python -m pip install "./integrations/nemo[agents,test]"
+            pythonpath: ""
+    name: nemo (${{ matrix.name }})
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: ${{ matrix.install }}
+      - name: pytest
+        env:
+          PYTHONPATH: ${{ matrix.pythonpath }}
+        run: python -m pytest -v -rs -c integrations/nemo/pyproject.toml integrations/nemo/tests
