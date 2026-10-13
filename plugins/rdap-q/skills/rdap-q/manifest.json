@@ -1,0 +1,50 @@
+{
+  "name": "rdap-q",
+  "version": "2.0.0",
+  "protocol_name": "RDAP-Q Agent Engineering Protocol",
+  "entrypoint": "SKILL.md",
+  "tool": "tool/rdapq.js",
+  "invocation": "/rdapq",
+  "home_env": "RDAPQ_HOME",
+  "home_defaults": {
+    "windows": "%USERPROFILE%\\.rdapq",
+    "unix": "${HOME}/.rdapq"
+  },
+  "task_files": {
+    "plan": ".rdapq/oracles.json",
+    "log": ".rdapq/state.jsonl",
+    "depth": ".rdapq/depth"
+  },
+  "always_load": [
+    "SKILL.md"
+  ],
+  "depth_load": {
+    "lean": [],
+    "full": [
+      "playbooks/discover.md",
+      "playbooks/audit.md"
+    ]
+  },
+  "event_load": {
+    "git_mutation": [
+      "playbooks/git.md"
+    ],
+    "audit_command": [
+      "playbooks/audit.md"
+    ]
+  },
+  "commands": {
+    "/rdapq": "Run the task with RDAP-Q: plan, implement, and let the bundled tool check and gate it.",
+    "/rdapq status": "Show the task's risk, planned files, last check, and current gate verdict.",
+    "/rdapq audit": "Run the adversarial audit checklist, then check and gate again.",
+    "/rdapq memory": "Search durable memory (at most 12 matching records).",
+    "/rdapq depth full": "Run the task at full depth: discovery before start, audit before reporting."
+  },
+  "terminal_states": [
+    "COMPLETE",
+    "BLOCKED",
+    "STALLED",
+    "MISSING_TEST",
+    "UNCLEAR_TASK"
+  ]
+}

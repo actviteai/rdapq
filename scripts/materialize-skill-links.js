@@ -1,10 +1,12 @@
 'use strict';
 
 /**
- * npm does not pack symlink directories. Replace the marketplace skill
- * mounts with real trees before `npm pack` / `npm publish`, then restore
- * the symlinks afterwards. Re-entrant: a second materialize is a no-op
- * while the state file exists (prepack can run twice).
+ * npm does not pack symlink directories. Replace the skill mount with a real
+ * tree before `npm pack` / `npm publish`, then restore the symlink afterwards.
+ * Re-entrant: a second materialize is a no-op while the state file exists
+ * (prepack can run twice). plugins/rdap-q/skills/rdap-q is not a link: it is
+ * a committed copy (scripts/sync-integrations.js), because plugin installers
+ * do not follow links out of the plugin directory.
  */
 
 const fs = require('fs');
@@ -15,7 +17,6 @@ const ROOT = path.resolve(__dirname, '..');
 const STATE = path.join(ROOT, '.rdapq-pack-state.json');
 const LINKS = [
   '.agents/skills/rdap-q',
-  'plugins/rdap-q/skills/rdap-q',
 ];
 
 function assertInsideRepo(resolved) {
