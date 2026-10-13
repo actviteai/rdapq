@@ -360,7 +360,7 @@ The engine, run by the agent or by you (`node .agents/skills/rdap-q/tool/rdapq.j
 | `gate [--json]` | Terminal state. Exit code 0 COMPLETE, 3 CONTINUE, 1 otherwise. |
 | `claim "<fact>" [--external] [--source s] [--verified] [--off-path]` | Record a claim for the external and claims oracles. |
 | `note decision\|assumption\|risk\|question\|blocker "<text>"` | Log a note. A blocker makes the gate report BLOCKED. |
-| `state` | Task summary. |
+| `state [--json]` | Task summary. `--json` prints one JSON object (`spec`, `required`, `rounds`, `lastCheck`, `notes`, `gate`) and writes nothing. |
 | `memory add\|search\|stale\|stats\|compact` | Durable memory. |
 | `export --out <file> [--repo <dir>]...` | Append anonymized measurement rows (no text, paths, or code) for training or eval. |
 | `hook-stop` | Claude Code Stop hook. |
