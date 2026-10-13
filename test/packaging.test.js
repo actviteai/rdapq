@@ -29,6 +29,8 @@ test('npm pack includes marketplace skill bodies and restores symlinks', () => {
     assert.ok(paths.some((item) => item.endsWith('plugins/rdap-q/skills/rdap-q/SKILL.md')), paths.filter((item) => item.includes('skills/rdap-q')).join('\n'));
     assert.ok(paths.some((item) => item.endsWith('.agents/skills/rdap-q/SKILL.md')));
     assert.ok(paths.some((item) => item.endsWith('package/lib/installer.js') || item.endsWith('lib/installer.js')));
+    // install --hermes renders SKILL.md with lib/hermes.js at install time.
+    assert.ok(paths.some((item) => item.endsWith('lib/hermes.js')), 'lib/hermes.js must be packed');
   } finally {
     restore();
     if (packed && fs.existsSync(packed)) fs.unlinkSync(packed);

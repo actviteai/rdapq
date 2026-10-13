@@ -8,7 +8,8 @@ const path = require('node:path');
 const test = require('node:test');
 
 const REPO = path.resolve(__dirname, '..');
-const { copyTreeSafe, placeConfigFile, publishTree, runCli } = require('../lib/installer');
+const { copyTreeSafe, placeConfigFile, publishTree, resolveLayout, runCli } = require('../lib/installer');
+const hermes = require('../lib/hermes');
 
 function tempLayout() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdapq-'));
@@ -27,6 +28,8 @@ function tempLayout() {
     GROK_HOME: path.join(root, 'grok'),
     COPILOT_HOME: path.join(root, 'copilot'),
     CURSOR_HOME: path.join(root, 'cursor'),
+    // Set explicitly: a developer running the tests inside Hermes has a real HERMES_HOME.
+    HERMES_HOME: path.join(root, 'hermes'),
   };
   return { root, home, env };
 }
@@ -127,11 +130,13 @@ test('install --all covers every harness and honors home overrides', () => {
     path.join(env.GROK_HOME, 'skills', 'rdap-q', 'SKILL.md'),
     path.join(env.GOOSE_HOME, '.goosehints'),
     path.join(env.CURSOR_HOME, 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(env.HERMES_HOME, 'skills', 'software-development', 'rdap-q', 'SKILL.md'),
   ];
   for (const file of expected) assert.equal(fs.existsSync(file), true, file);
   assert.equal(fs.existsSync(path.join(home, '.copilot')), false);
   assert.equal(fs.existsSync(path.join(home, '.codex')), false);
   assert.equal(fs.existsSync(path.join(home, '.cursor')), false);
+  assert.equal(fs.existsSync(path.join(home, '.hermes')), false);
 });
 
 test('install --cursor writes a Cursor skill and leaves other harnesses alone', () => {
@@ -336,9 +341,10 @@ test('install.ps1 refuses Node older than 22 and delegates a real launch', { ski
   assert.match(`${old.stderr}\n${old.stdout}`, /Node\.js >= 22 is required \(found v20\.11\.1\)/);
   assert.equal(fs.existsSync(env.RDAPQ_HOME), false);
 
-  const launched = pwsh(['-Claude', '-Quiet']);
+  const launched = pwsh(['-Claude', '-Hermes', '-Quiet']);
   assert.equal(launched.status, 0, `${launched.stderr}\n${launched.stdout}`);
   assert.equal(fs.existsSync(path.join(env.CLAUDE_HOME, 'commands', 'rdapq.md')), true);
+  assert.equal(fs.existsSync(path.join(env.HERMES_HOME, 'skills', 'software-development', 'rdap-q', 'SKILL.md')), true);
   assert.equal(fs.existsSync(path.join(env.CURSOR_HOME, 'skills', 'rdap-q')), false);
 });
 
@@ -398,4 +404,90 @@ test('init --hook merges the Stop hook into existing settings', () => {
   assert.match(fs.readFileSync(path.join(broken, '.claude', 'settings.json.rdapq'), 'utf8'), /hook-stop/);
 
   assert.equal(run(['install', '--hook'], env).code, 1);
+});
+
+const SKILL_SRC = fs.readFileSync(path.join(REPO, 'rdap-q-skill', 'SKILL.md'), 'utf8');
+const hermesSkill = (env) => path.join(env.HERMES_HOME, 'skills', 'software-development', 'rdap-q');
+
+test('install --hermes writes a Hermes skill with Hermes frontmatter and leaves other harnesses alone', () => {
+  const { env, home } = tempLayout();
+  const result = run(['install', '--hermes'], env);
+  assert.equal(result.code, 0, result.err);
+  const dir = hermesSkill(env);
+  const body = fs.readFileSync(path.join(dir, 'SKILL.md'), 'utf8');
+  const { version } = require('../package.json');
+  assert.deepEqual(hermes.checkFrontmatter(body, version), []);
+  assert.match(body, /^---\nname: rdap-q\ndescription: "Use when the user asks for RDAP-Q or evidence-gated work\. /);
+  assert.match(body, new RegExp(`\\nversion: ${version.replace(/\./g, '\\.')}\\n`));
+  assert.match(body, /\n {4}requires_toolsets: \[terminal\]\n/);
+  assert.doesNotMatch(body, /disable-model-invocation/);
+  assert.match(body, /for example `node \$\{HERMES_SKILL_DIR\}\/tool\/rdapq\.js gate`/);
+  // Apart from the frontmatter and that one example path, the body is the packaged SKILL.md.
+  const strip = (text) => text.replace(/^---\n[\s\S]*?\n---\n/, '').replace('${HERMES_SKILL_DIR}/tool/rdapq.js', '.agents/skills/rdap-q/tool/rdapq.js');
+  assert.equal(strip(body), strip(SKILL_SRC));
+  // The rest of the tree is copied as is: the engine and playbooks the body names.
+  assert.equal(fs.readFileSync(path.join(dir, 'tool', 'rdapq.js'), 'utf8'), fs.readFileSync(path.join(REPO, 'rdap-q-skill', 'tool', 'rdapq.js'), 'utf8'));
+  assert.equal(fs.existsSync(path.join(dir, 'playbooks', 'audit.md')), true);
+  // Hermes needs no bridge file, and no other harness is touched.
+  for (const other of [env.CLAUDE_HOME, env.CURSOR_HOME, env.GROK_HOME, env.COPILOT_HOME, env.CLINE_HOME, env.GEMINI_HOME, env.GOOSE_HOME, path.join(home, '.agents'), path.join(home, '.hermes')]) {
+    assert.equal(fs.existsSync(other), false, other);
+  }
+  assert.match(result.out, /quick_commands\.rdapq\.target \/rdap-q/);
+});
+
+test('other harnesses keep the packaged SKILL.md byte for byte', () => {
+  const { env } = tempLayout();
+  assert.equal(run(['install', '--all'], env).code, 0);
+  for (const skill of [
+    path.join(env.RDAPQ_HOME, 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(env.CLAUDE_HOME, 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(env.CURSOR_HOME, 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(env.GROK_HOME, 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(env.COPILOT_HOME, 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(env.HOME, '.agents', 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(env.GEMINI_HOME, 'antigravity-cli', 'skills', 'rdap-q', 'SKILL.md'),
+  ]) {
+    assert.equal(fs.readFileSync(skill, 'utf8'), SKILL_SRC, skill);
+  }
+});
+
+test('Hermes reinstall replaces the tree, keeps memory, and is stable; status reports it', () => {
+  const { env } = tempLayout();
+  assert.equal(run(['install', '--hermes'], env).code, 0);
+  const dir = hermesSkill(env);
+  const first = fs.readFileSync(path.join(dir, 'SKILL.md'));
+  fs.writeFileSync(path.join(dir, 'STALE.md'), 'stale');
+  fs.writeFileSync(path.join(env.RDAPQ_HOME, 'memory', 'records.jsonl'), '{"id":"M-1"}\n');
+  // Hermes keeps its own bookkeeping beside skill dirs; a reinstall must not touch it.
+  fs.writeFileSync(path.join(env.HERMES_HOME, 'skills', '.usage.json'), '{}\n');
+  const again = run(['install', '--hermes'], env);
+  assert.equal(again.code, 0, again.err);
+  assert.equal(fs.existsSync(path.join(dir, 'STALE.md')), false);
+  assert.deepEqual(fs.readFileSync(path.join(dir, 'SKILL.md')), first);
+  assert.equal(fs.readFileSync(path.join(env.RDAPQ_HOME, 'memory', 'records.jsonl'), 'utf8'), '{"id":"M-1"}\n');
+  assert.equal(fs.readFileSync(path.join(env.HERMES_HOME, 'skills', '.usage.json'), 'utf8'), '{}\n');
+  const status = run(['status'], env);
+  assert.match(status.out, /\[✓\] Nous Research Hermes Agent\s*: Installed \(.*software-development[\\/]rdap-q[\\/]SKILL\.md\)/);
+  assert.match(status.out, /\[✗\] Cursor\s*: Not installed/);
+});
+
+test('HERMES_HOME wins; otherwise Hermes lives in ~/.hermes, or %LOCALAPPDATA%\\hermes on Windows', () => {
+  assert.equal(resolveLayout({ HOME: '/h', HERMES_HOME: '/profiles/work' }, 'linux').hermes, '/profiles/work');
+  assert.equal(resolveLayout({ HOME: '/h' }, 'linux').hermes, path.join('/h', '.hermes'));
+  assert.equal(resolveLayout({ HOME: '/h' }, 'darwin').hermes, path.join('/h', '.hermes'));
+  assert.equal(resolveLayout({ USERPROFILE: '/u', LOCALAPPDATA: '/u/AppData/Local' }, 'win32').hermes, path.join('/u/AppData/Local', 'hermes'));
+  assert.equal(resolveLayout({ USERPROFILE: '/u' }, 'win32').hermes, path.join('/u', 'AppData', 'Local', 'hermes'));
+});
+
+test('a SKILL.md render that fails leaves the previous skill in place', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rdapq-render-'));
+  const dest = path.join(root, 'skills', 'rdap-q');
+  fs.mkdirSync(dest, { recursive: true });
+  fs.writeFileSync(path.join(dest, 'SKILL.md'), 'OLD');
+  const src = path.join(root, 'src');
+  fs.mkdirSync(src);
+  fs.writeFileSync(path.join(src, 'SKILL.md'), 'no frontmatter here');
+  assert.throws(() => publishTree(src, dest, { renderSkill: (text) => hermes.renderInstalled(text, '9.9.9') }), /frontmatter/);
+  assert.equal(fs.readFileSync(path.join(dest, 'SKILL.md'), 'utf8'), 'OLD');
+  assert.deepEqual(fs.readdirSync(path.join(root, 'skills')), ['rdap-q']);
 });

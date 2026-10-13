@@ -46,7 +46,7 @@ if (bin.rdapq !== './bin/rdapq.js' || bin['rdap-q'] !== './bin/rdapq.js') {
   failures.push('package.json bin entries must point at bin/rdapq.js');
 }
 
-for (const rel of ['bin/rdapq.js', 'lib/installer.js', 'scripts/check-versions.js', 'scripts/check-static.js', 'scripts/materialize-skill-links.js', 'scripts/stamp-version.js', 'scripts/version-targets.js', 'rdap-q-skill/tool/rdapq.js', 'eval/run.js', 'eval/report.js', 'eval/lib/agents.js']) {
+for (const rel of ['bin/rdapq.js', 'lib/installer.js', 'lib/hermes.js', 'scripts/check-versions.js', 'scripts/check-static.js', 'scripts/materialize-skill-links.js', 'scripts/stamp-version.js', 'scripts/version-targets.js', 'rdap-q-skill/tool/rdapq.js', 'eval/run.js', 'eval/report.js', 'eval/lib/agents.js']) {
   const checked = spawnSync(process.execPath, ['--check', path.join(ROOT, rel)], { encoding: 'utf8' });
   if (checked.status !== 0) {
     failures.push(`${rel}: node --check failed\n${checked.stderr}`);
@@ -64,6 +64,14 @@ for (const rel of [...(plugin.rules || []), ...(plugin.skills || [])]) {
 }
 
 need('rdap-q-skill/README.md', /SKILL\.md` is the instruction source/, 'README must point at SKILL.md and not act as a second protocol');
+
+// Hermes Agent: the installed SKILL.md is rendered from rdap-q-skill/SKILL.md
+// at install time, so check the render, not a file on disk.
+{
+  const hermes = require('../lib/hermes');
+  const rendered = hermes.renderInstalled(read('rdap-q-skill/SKILL.md'), pkg.version);
+  for (const problem of hermes.checkFrontmatter(rendered, pkg.version)) failures.push(`Hermes SKILL.md render: ${problem}`);
+}
 
 // Every file a manifest names must exist.
 for (const [rel, prefix] of [['manifest.json', ''], ['rdap-q-skill/manifest.json', 'rdap-q-skill/']]) {
