@@ -2,7 +2,7 @@
   "installer": "lib/installer.js",
   "readme": "README.md",
   "forbidden_in_readme": [
-    "gh extension install coldcanuk/rdapq",
+    "gh extension install actviteai/rdapq",
     "goose toolkit add",
     "codex skill add",
     "agy plugin marketplace add"

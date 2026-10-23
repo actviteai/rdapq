@@ -2,7 +2,7 @@
 
 This is a framework integration, not a skill install. NeMo Agent Toolkit (`nvidia-nat`, CLI `nat`) has no skills directory and no slash commands. Agents are YAML workflows that call Python tools. `rdapq-nat` registers RDAP-Q's engine commands as one tool group, so a NeMo agent can plan a change, run the checks, and get a verdict it did not write itself.
 
-`npx --yes github:coldcanuk/rdapq install --nemo` installs the engine and prints these steps. It does not touch any Python environment.
+`npx --yes github:actviteai/rdapq install --nemo` installs the engine and prints these steps. It does not touch any Python environment.
 
 Each tool runs the Node engine (`rdapq.js`), the same file every other harness uses. The engine runs the commands, scores the oracles, and names the verdict. The Python layer passes arguments through and returns what the engine printed.
 
@@ -12,7 +12,7 @@ Each tool runs the Node engine (`rdapq.js`), the same file every other harness u
 - **Node.js 22 or newer** on the host where the tools run, plus the engine. The usual source is the RDAP-Q installer:
 
   ```bash
-  npx --yes github:coldcanuk/rdapq install --global-only   # writes ~/.rdapq/skills/rdap-q/tool/rdapq.js
+  npx --yes github:actviteai/rdapq install --global-only   # writes ~/.rdapq/skills/rdap-q/tool/rdapq.js
   ```
 
   Or point `rdapq_js_path` at `rdap-q-skill/tool/rdapq.js` in a clone.
@@ -23,7 +23,7 @@ Each tool runs the Node engine (`rdapq.js`), the same file every other harness u
 `rdapq-nat` is not on PyPI yet. Install it from a clone into the environment that runs `nat`:
 
 ```bash
-git clone https://github.com/coldcanuk/rdapq.git
+git clone https://github.com/actviteai/rdapq.git
 pip install "./rdapq/integrations/nemo[agents]"   # [agents] adds react_agent / tool_calling_agent and the OpenAI + NIM clients
 nat info components -t function_group -q rdapq   # should list `rdapq`
 ```

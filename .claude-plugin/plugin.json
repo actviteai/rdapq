@@ -7,8 +7,8 @@
     "name": "coldcanuk",
     "url": "https://github.com/coldcanuk"
   },
-  "homepage": "https://github.com/coldcanuk/rdapq",
-  "repository": "https://github.com/coldcanuk/rdapq",
+  "homepage": "https://github.com/actviteai/rdapq",
+  "repository": "https://github.com/actviteai/rdapq",
   "license": "GPL-3.0-or-later",
   "skills": [
     "./rdap-q-skill"

@@ -83,3 +83,8 @@ test('package.json points at the actviteai/rdapq repository', () => {
   assert.equal(pkg.homepage, 'https://github.com/actviteai/rdapq#readme');
   assert.equal(pkg.bugs.url, 'https://github.com/actviteai/rdapq/issues');
 });
+
+test('no tracked file points at the old coldcanuk/rdapq repository', () => {
+  const res = spawnSync('git', ['grep', '-n', 'coldcanuk/rdapq', '--', '.', ':!test/packaging.test.js'], { cwd: REPO, encoding: 'utf8' });
+  assert.equal(res.stdout, '', res.stdout);
+});
