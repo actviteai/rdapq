@@ -10,13 +10,13 @@
   },
   "author": "coldcanuk",
   "license": "GPL-3.0-or-later",
-  "homepage": "https://github.com/coldcanuk/rdapq#readme",
+  "homepage": "https://github.com/actviteai/rdapq#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/coldcanuk/rdapq.git"
+    "url": "git+https://github.com/actviteai/rdapq.git"
   },
   "bugs": {
-    "url": "https://github.com/coldcanuk/rdapq/issues"
+    "url": "https://github.com/actviteai/rdapq/issues"
   },
   "keywords": [
     "rdap-q",
