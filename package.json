@@ -43,8 +43,6 @@
     "stamp": "node scripts/stamp-version.js",
     "version": "node scripts/stamp-version.js --git-add && node scripts/sync-integrations.js && git add integrations plugins/rdap-q/skills",
     "sync": "node scripts/sync-integrations.js",
-    "prepack": "node scripts/materialize-skill-links.js materialize",
-    "postpack": "node scripts/materialize-skill-links.js restore",
     "install:all": "node bin/rdapq.js install --all",
     "install:claude": "node bin/rdapq.js install --claude",
     "install:cline": "node bin/rdapq.js install --cline",
@@ -66,6 +64,7 @@
     "plugin.json",
     "install.sh",
     "install.ps1",
+    "bridges",
     "lib",
     "scripts/*.js",
     "AGENTS.md",
@@ -74,10 +73,7 @@
     ".clinerules",
     ".goosehints",
     ".claude-plugin",
-    ".claude/commands/rdapq.md",
     ".github/copilot-instructions.md",
-    ".grok/rules.md",
-    ".agents/skills/rdap-q",
     "plugins",
     "SECURITY.md"
   ]

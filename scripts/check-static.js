@@ -27,7 +27,6 @@ ban('install.ps1', /Remove-Item/, 'wrapper must not delete user files');
 ban('rdap-q-skill/install/install-unix.sh', /rm -rf "\$TARGET\/skills\/rdap-q"/, 'must not delete the live skill before the copy succeeds');
 ban('rdap-q-skill/install/install-unix.sh', /\|\|\s*true/, 'must not hide copy failures');
 need('rdap-q-skill/install/install-unix.sh', /SKILL\.md/, 'must verify the staged skill before swapping');
-need('.gitignore', /^\.rdapq-pack-state\.json$/m, 'pack bookkeeping must be ignored');
 
 // Metadata nothing reads must stay deleted. Each of these was audited against
 // vendor docs and the harness CLIs on 2026-10-13. A root marketplace.json also
@@ -52,7 +51,7 @@ if (bin.rdapq !== './bin/rdapq.js' || bin['rdap-q'] !== './bin/rdapq.js') {
   failures.push('package.json bin entries must point at bin/rdapq.js');
 }
 
-for (const rel of ['bin/rdapq.js', 'lib/installer.js', 'lib/hermes.js', 'scripts/check-versions.js', 'scripts/check-static.js', 'scripts/materialize-skill-links.js', 'scripts/sync-integrations.js', 'scripts/stamp-version.js', 'scripts/version-targets.js', 'rdap-q-skill/tool/rdapq.js', 'eval/run.js', 'eval/report.js', 'eval/lib/agents.js']) {
+for (const rel of ['bin/rdapq.js', 'lib/installer.js', 'lib/hermes.js', 'scripts/check-versions.js', 'scripts/check-static.js', 'scripts/sync-integrations.js', 'scripts/stamp-version.js', 'scripts/version-targets.js', 'rdap-q-skill/tool/rdapq.js', 'eval/run.js', 'eval/report.js', 'eval/lib/agents.js']) {
   const checked = spawnSync(process.execPath, ['--check', path.join(ROOT, rel)], { encoding: 'utf8' });
   if (checked.status !== 0) {
     failures.push(`${rel}: node --check failed\n${checked.stderr}`);
@@ -151,7 +150,7 @@ need('rdap-q-skill/SKILL.md', /Never say COMPLETE unless `gate` printed COMPLETE
 for (const gone of ['core', 'state', 'templates']) {
   if (fs.existsSync(path.join(ROOT, 'rdap-q-skill', gone))) failures.push(`rdap-q-skill/${gone}/ was replaced by the engine and must stay deleted`);
 }
-for (const bridge of ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.clinerules', '.goosehints', '.grok/rules.md', '.github/copilot-instructions.md', '.claude/commands/rdapq.md']) {
+for (const bridge of ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.clinerules', '.goosehints', 'bridges/grok/rules.md', '.github/copilot-instructions.md', 'bridges/claude/commands/rdapq.md']) {
   need(bridge, /^Fallback: /m, 'bridge needs a Fallback line the installer can point at the installed core');
 }
 
