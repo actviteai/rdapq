@@ -150,7 +150,7 @@ need('rdap-q-skill/SKILL.md', /Never say COMPLETE unless `gate` printed COMPLETE
 for (const gone of ['core', 'state', 'templates']) {
   if (fs.existsSync(path.join(ROOT, 'rdap-q-skill', gone))) failures.push(`rdap-q-skill/${gone}/ was replaced by the engine and must stay deleted`);
 }
-for (const bridge of ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', '.clinerules', '.goosehints', 'bridges/grok/rules.md', '.github/copilot-instructions.md', 'bridges/claude/commands/rdapq.md']) {
+for (const bridge of ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'bridges/cline/rdapq.md', 'bridges/goose/goosehints', 'bridges/grok/rules.md', '.github/copilot-instructions.md', 'bridges/claude/commands/rdapq.md']) {
   need(bridge, /^Fallback: /m, 'bridge needs a Fallback line the installer can point at the installed core');
 }
 

@@ -67,16 +67,29 @@ test('codex and copilot get skills, not always-on global rules', () => {
   assert.equal(fs.existsSync(path.join(env.COPILOT_HOME, 'copilot-instructions.md')), false);
 });
 
+test('cline and goose get skills, not always-on global rules', () => {
+  const { env, home } = tempLayout();
+  const result = run(['install', '--cline', '--goose'], env);
+  assert.equal(result.code, 0, result.err);
+  for (const skill of [
+    path.join(env.CLINE_HOME, 'skills', 'rdap-q', 'SKILL.md'),
+    path.join(home, '.agents', 'skills', 'rdap-q', 'SKILL.md'),
+  ]) {
+    assert.match(fs.readFileSync(skill, 'utf8'), /^---\nname: rdap-q\n/, skill);
+  }
+  assert.equal(fs.existsSync(path.join(env.CLINE_HOME, 'rules')), false);
+  assert.equal(fs.existsSync(path.join(env.GOOSE_HOME, '.goosehints')), false);
+  assert.equal(fs.existsSync(path.join(home, '.config', 'goose')), false);
+});
+
 test('global bridges fall back to the installed core, not a repo path', () => {
   const { env } = tempLayout();
-  const result = run(['install', '--claude', '--cline', '--goose'], env);
+  const result = run(['install', '--claude'], env);
   assert.equal(result.code, 0, result.err);
   const core = path.join(env.RDAPQ_HOME, 'skills', 'rdap-q', 'SKILL.md');
   assert.equal(fs.existsSync(core), true);
   for (const bridge of [
     path.join(env.CLAUDE_HOME, 'commands', 'rdapq.md'),
-    path.join(env.CLINE_HOME, 'rules', 'rdapq.md'),
-    path.join(env.GOOSE_HOME, '.goosehints'),
   ]) {
     const body = fs.readFileSync(bridge, 'utf8');
     assert.ok(body.includes(`Fallback: \`${core}\`\n`), `${bridge}:\n${body}`);
@@ -97,7 +110,7 @@ test('install --claude does not install the other harnesses', () => {
   assert.equal(fs.existsSync(path.join(env.CODEX_HOME, 'AGENTS.md')), false);
   assert.equal(fs.existsSync(path.join(env.GROK_HOME, 'skills', 'rdap-q', 'SKILL.md')), false);
   assert.equal(fs.existsSync(path.join(env.COPILOT_HOME, 'copilot-instructions.md')), false);
-  assert.equal(fs.existsSync(path.join(env.CLINE_HOME, 'rules', 'rdapq.md')), false);
+  assert.equal(fs.existsSync(path.join(env.CLINE_HOME, 'skills', 'rdap-q', 'SKILL.md')), false);
   assert.equal(fs.existsSync(path.join(env.GEMINI_HOME, 'antigravity-cli', 'skills', 'rdap-q', 'SKILL.md')), false);
   assert.equal(fs.existsSync(path.join(env.GOOSE_HOME, '.goosehints')), false);
   assert.equal(fs.existsSync(path.join(env.CURSOR_HOME, 'skills', 'rdap-q', 'SKILL.md')), false);
@@ -124,11 +137,10 @@ test('install --all covers every harness and honors home overrides', () => {
     path.join(env.GEMINI_HOME, 'config', 'skills', 'rdap-q', 'SKILL.md'),
     path.join(env.CLAUDE_HOME, 'commands', 'rdapq.md'),
     path.join(env.CLAUDE_HOME, 'skills', 'rdap-q', 'SKILL.md'),
-    path.join(env.CLINE_HOME, 'rules', 'rdapq.md'),
+    path.join(env.CLINE_HOME, 'skills', 'rdap-q', 'SKILL.md'),
     path.join(env.COPILOT_HOME, 'skills', 'rdap-q', 'SKILL.md'),
     path.join(home, '.agents', 'skills', 'rdap-q', 'SKILL.md'),
     path.join(env.GROK_HOME, 'skills', 'rdap-q', 'SKILL.md'),
-    path.join(env.GOOSE_HOME, '.goosehints'),
     path.join(env.CURSOR_HOME, 'skills', 'rdap-q', 'SKILL.md'),
     path.join(env.HERMES_HOME, 'skills', 'software-development', 'rdap-q', 'SKILL.md'),
   ];
@@ -137,6 +149,8 @@ test('install --all covers every harness and honors home overrides', () => {
   assert.equal(fs.existsSync(path.join(home, '.codex')), false);
   assert.equal(fs.existsSync(path.join(home, '.cursor')), false);
   assert.equal(fs.existsSync(path.join(home, '.hermes')), false);
+  assert.equal(fs.existsSync(path.join(env.CLINE_HOME, 'rules')), false);
+  assert.equal(fs.existsSync(path.join(env.GOOSE_HOME, '.goosehints')), false);
 });
 
 test('install --cursor writes a Cursor skill and leaves other harnesses alone', () => {
@@ -178,6 +192,7 @@ test('init keeps a custom harness file unless --force, and never follows a symli
   assert.equal(fs.existsSync(path.join(repo, '.agents', 'skills', 'rdap-q', 'SKILL.md')), true);
   assert.equal(fs.existsSync(path.join(repo, '.claude', 'skills', 'rdap-q', 'SKILL.md')), true);
   assert.equal(fs.existsSync(path.join(repo, '.clinerules', 'rdapq.md')), true);
+  assert.equal(fs.existsSync(path.join(repo, '.goosehints')), true);
   assert.equal(fs.existsSync(path.join(repo, 'CLAUDE.md')), true);
 
   const linked = path.join(repo, 'linked-target.md');

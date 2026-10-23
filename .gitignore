@@ -12,6 +12,7 @@
 .rdapq/depth
 .rdapq/cache/
 .rdapq/logs/
+.rdapq/archive/
 .rdapq/sessions/
 .rdapq/*.tmp
 .rdapq/*.log
@@ -46,7 +47,7 @@ secrets.json
 # AI Agent & Harness Artifacts
 # ------------------------------------------------------------------------------
 # Agent harness folders are local to each machine and never committed.
-# The Claude command and Grok rules that `init` writes live in bridges/.
+# The Claude, Grok, Cline, and Goose files that `init` writes live in bridges/.
 .claude/
 .grok/
 .agents/
@@ -54,15 +55,16 @@ secrets.json
 .codex/
 .copilot/
 *.claude.json
+.cline/
+.goose/
+/.clinerules
+/.goosehints
 
 # Cline & Roo Code
-.cline/history/
-.cline/sessions/
 .roomodes.local
 .cline_history*
 
 # Goose
-.goose/
 .goosehints.local
 
 # GitHub Copilot

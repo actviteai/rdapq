@@ -70,8 +70,6 @@
     "AGENTS.md",
     "CLAUDE.md",
     "GEMINI.md",
-    ".clinerules",
-    ".goosehints",
     ".claude-plugin",
     ".github/copilot-instructions.md",
     "plugins",
