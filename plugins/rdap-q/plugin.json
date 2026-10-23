@@ -3,7 +3,9 @@
   "version": "2.0.0",
   "description": "Evidence-first engineering protocol for AI coding agents. A bundled tool runs the checks and names the result, so the model never grades its own work.",
   "author": {
-    "name": "coldcanuk"
+    "name": "coldcanuk",
+    "email": "chuck@actvite.com",
+    "url": "https://actvite.com"
   },
   "homepage": "https://github.com/actviteai/rdapq",
   "keywords": [

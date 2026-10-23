@@ -88,3 +88,28 @@ test('no tracked file points at the old coldcanuk/rdapq repository', () => {
   const res = spawnSync('git', ['grep', '-n', 'coldcanuk/rdapq', '--', '.', ':!test/packaging.test.js'], { cwd: REPO, encoding: 'utf8' });
   assert.equal(res.stdout, '', res.stdout);
 });
+
+test('.gitignore keeps harness folders local except the files rdapq ships', () => {
+  const ignored = (rel) => spawnSync('git', ['check-ignore', '-q', '--no-index', rel], { cwd: REPO }).status === 0;
+  for (const rel of [
+    '.claude/settings.local.json', '.claude/settings.json', '.claude/sessions/x', '.claude/commands/other.md', '.claude/skills/rdap-q/SKILL.md',
+    '.grok/sessions/x', '.grok/skills/rdap-q/SKILL.md', '.agents/other', '.agents/skills/other/SKILL.md',
+    '.agent/x', '.codex/x', '.copilot/x', '.worktrees/x',
+  ]) assert.equal(ignored(rel), true, `${rel} should be ignored`);
+  for (const rel of ['.claude/commands/rdapq.md', '.grok/rules.md', '.agents/skills/rdap-q']) {
+    assert.equal(ignored(rel), false, `${rel} must stay tracked`);
+  }
+  assert.equal(spawnSync('git', ['ls-files', '-ci', '--exclude-standard'], { cwd: REPO, encoding: 'utf8' }).stdout, '');
+});
+
+test('package and plugin manifests name the actvite.com owner', () => {
+  const read = (rel) => JSON.parse(fs.readFileSync(path.join(REPO, rel), 'utf8'));
+  const author = { name: 'coldcanuk', email: 'chuck@actvite.com', url: 'https://actvite.com' };
+  assert.deepEqual(read('package.json').author, author);
+  const market = read('.claude-plugin/marketplace.json');
+  assert.equal(market.owner.email, author.email);
+  assert.deepEqual(market.plugins[0].author, author);
+  assert.deepEqual(read('.claude-plugin/plugin.json').author, author);
+  assert.deepEqual(read('plugins/rdap-q/plugin.json').author, author);
+  assert.match(fs.readFileSync(path.join(REPO, 'integrations/nemo/pyproject.toml'), 'utf8'), /authors = \[\{ name = "coldcanuk", email = "chuck@actvite\.com" \}\]/);
+});
