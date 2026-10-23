@@ -1,21 +1,24 @@
 # Security Policy
 
-## Supported Versions
+## Supported versions
 
-Use this section to tell people about which versions of your project are
-currently being supported with security updates.
+Only the latest release of `rdap-q` on npm receives security fixes.
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 5.1.x   | :white_check_mark: |
-| 5.0.x   | :x:                |
-| 4.0.x   | :white_check_mark: |
-| < 4.0   | :x:                |
+## Reporting a vulnerability
 
-## Reporting a Vulnerability
+Please do not open a public issue for a security problem.
 
-Use this section to tell people how to report a vulnerability.
+Report it privately through GitHub: open the repository's **Security** tab and choose **Report a vulnerability**. Include the version, the command you ran, and what happened. You will get a reply as soon as a maintainer can look at it.
 
-Tell them where to go, how often they can expect to get an update on a
-reported vulnerability, what to expect if the vulnerability is accepted or
-declined, etc.
+## Scope
+
+RDAP-Q is a local CLI, installer, and agent skill with no package dependencies. Reports we care about most:
+
+- `rdapq install` or `rdapq init` writing, replacing, or deleting files outside the paths they document.
+- The engine running a command the task plan did not record, or reading or writing outside the repository and `$RDAPQ_HOME`.
+- Memory or task files storing something that looks like a secret.
+- Anything in the published npm package that should not be there.
+
+## Releases
+
+CI holds no npm token and cannot publish. A maintainer stages each release and publishes it by hand with npm two-factor authentication.
