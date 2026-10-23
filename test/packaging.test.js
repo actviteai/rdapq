@@ -23,9 +23,11 @@ test('npm pack includes the skill, bridges, and marketplace copy, and no agent f
     // install --claude and init copy these into the harness and the project.
     'bridges/claude/commands/rdapq.md',
     'bridges/grok/rules.md',
+    'bridges/cline/rdapq.md',
+    'bridges/goose/goosehints',
     '.github/copilot-instructions.md',
   ]) assert.ok(paths.includes(want), `missing ${want}`);
-  assert.deepEqual(paths.filter((rel) => /^\.(claude|grok|agents|agent|codex|copilot)\//.test(rel)), []);
+  assert.deepEqual(paths.filter((rel) => /^\.(claude|grok|agents|agent|codex|copilot|cline|goose)\/|^\.(clinerules|goosehints)$/.test(rel)), []);
 });
 
 test('npm pack ships only tracked files, even from a dirty checkout', (t) => {
@@ -78,11 +80,12 @@ test('.gitignore keeps every agent harness folder out of the repository', () => 
   for (const rel of [
     '.claude/settings.local.json', '.claude/commands/rdapq.md', '.claude/skills/rdap-q/SKILL.md',
     '.grok/rules.md', '.agents/skills/rdap-q/SKILL.md', '.agent/x', '.codex/x', '.copilot/x', '.worktrees/x',
+    '.clinerules', '.clinerules/rdapq.md', '.goosehints', '.cline/skills/rdap-q/SKILL.md', '.goose/x',
   ]) assert.equal(ignored(rel), true, `${rel} should be ignored`);
-  for (const rel of ['.claude-plugin/marketplace.json', 'bridges/claude/commands/rdapq.md', 'bridges/grok/rules.md']) {
+  for (const rel of ['.claude-plugin/marketplace.json', 'bridges/claude/commands/rdapq.md', 'bridges/grok/rules.md', 'bridges/cline/rdapq.md', 'bridges/goose/goosehints']) {
     assert.equal(ignored(rel), false, `${rel} must stay tracked`);
   }
-  const tracked = spawnSync('git', ['ls-files', '.claude', '.grok', '.agents', '.agent', '.codex', '.copilot'], { cwd: REPO, encoding: 'utf8' }).stdout;
+  const tracked = spawnSync('git', ['ls-files', '.claude', '.grok', '.agents', '.agent', '.codex', '.copilot', '.cline', '.goose', '.clinerules', '.goosehints'], { cwd: REPO, encoding: 'utf8' }).stdout;
   assert.equal(tracked, '');
   assert.equal(spawnSync('git', ['ls-files', '-ci', '--exclude-standard'], { cwd: REPO, encoding: 'utf8' }).stdout, '');
 });

@@ -139,34 +139,46 @@
     {
       "id": "goose",
       "indexes": ["https://goose-docs.ai/llms.txt"],
-      "pins": ["https://goose-docs.ai/docs/guides/context-engineering/using-goosehints"],
-      "follow": ["goosehints", "hint"],
+      "pins": [
+        "https://goose-docs.ai/docs/guides/context-engineering/using-skills",
+        "https://goose-docs.ai/docs/guides/context-engineering/using-goosehints"
+      ],
+      "follow": ["using-skills", "goosehints"],
       "claims": [
         {
-          "id": "global-hints",
-          "installer": "path.join(layout.goose, '.goosehints')",
-          "docs": ".goosehints",
-          "readme": "~/.config/goose/.goosehints"
+          "id": "global-skills",
+          "installer": "if (id === 'goose') return [path.join(layout.agents, 'skills', 'rdap-q')]",
+          "docs": ".agents/skills",
+          "readme": "~/.agents/skills/rdap-q/"
         },
         {
-          "id": "home",
-          "installer": "path.join(home, '.config', 'goose')",
-          "docs": ".config/goose",
-          "readme": "~/.config/goose/.goosehints"
+          "id": "project-hints",
+          "installer": "'.goosehints']",
+          "docs": ".goosehints",
+          "readme": "`.goosehints`"
         }
       ]
     },
     {
       "id": "cline",
       "indexes": ["https://docs.cline.bot/llms.txt"],
-      "pins": ["https://docs.cline.bot/customization/cline-rules.md"],
-      "follow": ["cline-rules"],
+      "pins": [
+        "https://docs.cline.bot/customization/skills.md",
+        "https://docs.cline.bot/customization/cline-rules.md"
+      ],
+      "follow": ["skills", "cline-rules"],
       "claims": [
         {
-          "id": "user-rules",
-          "installer": "path.join(layout.cline, 'rules', 'rdapq.md')",
-          "docs": ".cline/rules",
-          "readme": "~/.cline/rules/rdapq.md"
+          "id": "user-skills",
+          "installer": "path.join(layout.cline, 'skills', 'rdap-q')",
+          "docs": ".cline/skills",
+          "readme": "~/.cline/skills/rdap-q/"
+        },
+        {
+          "id": "project-skills",
+          "installer": "path.join(abs, '.claude', 'skills', 'rdap-q')",
+          "docs": ".claude/skills",
+          "readme": ".claude/skills/rdap-q/"
         },
         {
           "id": "project-rules",
