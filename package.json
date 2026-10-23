@@ -63,17 +63,18 @@
     "install.sh",
     "install.ps1",
     "lib",
-    "scripts",
+    "scripts/*.js",
     "AGENTS.md",
     "CLAUDE.md",
     "GEMINI.md",
     ".clinerules",
     ".goosehints",
     ".claude-plugin",
-    ".claude",
-    ".github",
-    ".grok",
-    ".agents",
-    "plugins"
+    ".claude/commands/rdapq.md",
+    ".github/copilot-instructions.md",
+    ".grok/rules.md",
+    ".agents/skills/rdap-q",
+    "plugins",
+    "SECURITY.md"
   ]
 }
