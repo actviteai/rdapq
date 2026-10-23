@@ -1,8 +1,8 @@
 # RDAP-Q: Research-Driven Adaptive Planning with Quality Gates
 
-[![CI](https://github.com/coldcanuk/rdapq/actions/workflows/ci.yml/badge.svg)](https://github.com/coldcanuk/rdapq/actions/workflows/ci.yml)
+[![CI](https://github.com/actviteai/rdapq/actions/workflows/ci.yml/badge.svg)](https://github.com/actviteai/rdapq/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/coldcanuk/rdapq)
+[![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/actviteai/rdapq)
 [![npm](https://img.shields.io/npm/v/rdap-q.svg)](https://www.npmjs.com/package/rdap-q)
 
 Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. Framework: NVIDIA NeMo Agent Toolkit. See [Harness install](#in-harness-marketplace-installation).
@@ -117,21 +117,21 @@ hermes config set quick_commands.rdapq.target /rdap-q
 Hermes can also install the skill straight from this repository, without Node.js for the installer (the engine still needs Node 22 to run):
 
 ```bash
-hermes skills install https://raw.githubusercontent.com/coldcanuk/rdapq/main/integrations/hermes/SKILL.md --category software-development
+hermes skills install https://raw.githubusercontent.com/actviteai/rdapq/main/integrations/hermes/SKILL.md --category software-development
 ```
 
 That copy is `integrations/hermes/`: the same SKILL.md body with the engine at `scripts/rdapq.js` and the playbooks under `references/`, because a URL install copies only files SKILL.md names under those directories. It is generated from `rdap-q-skill/` by `npm run sync`, and `npm test` fails if it drifts. Hermes installs it with `community` trust after its security scan; `hermes skills update rdap-q` re-fetches it.
 
-`init` writes no Hermes file. Hermes already reads a repository's `AGENTS.md` (which `init` writes) and, after `hermes skills trust`, the repo's `.agents/skills/rdap-q/`. For a Hermes profile, point `HERMES_HOME` at it: `HERMES_HOME=~/.hermes/profiles/<name> npx --yes github:coldcanuk/rdapq install --hermes`.
+`init` writes no Hermes file. Hermes already reads a repository's `AGENTS.md` (which `init` writes) and, after `hermes skills trust`, the repo's `.agents/skills/rdap-q/`. For a Hermes profile, point `HERMES_HOME` at it: `HERMES_HOME=~/.hermes/profiles/<name> npx --yes github:actviteai/rdapq install --hermes`.
 
 User installs never add always-on global rules for harnesses that load skills on demand, so RDAP-Q stays out of sessions that do not invoke it. Global bridges (the Claude command, Cline rules, Goose hints) point at the installed core under `$RDAPQ_HOME`. Earlier releases wrote `~/.codex/AGENTS.md` and `~/.copilot/copilot-instructions.md`; the installer never deletes your files, so remove those by hand if they only contain the RDAP-Q bridge.
 
 ```bash
 # This GitHub tree (2.0.0, not on npm):
-npx --yes github:coldcanuk/rdapq install --cursor
-npx --yes github:coldcanuk/rdapq install --codex --claude
-npx --yes github:coldcanuk/rdapq install --hermes
-npx --yes github:coldcanuk/rdapq init
+npx --yes github:actviteai/rdapq install --cursor
+npx --yes github:actviteai/rdapq install --codex --claude
+npx --yes github:actviteai/rdapq install --hermes
+npx --yes github:actviteai/rdapq init
 
 # Released npm package (pin; latest is 1.4.0): <!-- keep-version -->
 npx --yes rdap-q@$(npm view rdap-q version) install --cursor
@@ -140,7 +140,7 @@ npx --yes rdap-q@$(npm view rdap-q version) install --cursor
 Claude Code can also add this repository as a plugin marketplace from inside a session, because `.claude-plugin/marketplace.json` is in the repo:
 
 ```text
-/plugin marketplace add coldcanuk/rdapq
+/plugin marketplace add actviteai/rdapq
 /plugin install rdap-q@rdapq
 ```
 
@@ -151,8 +151,8 @@ That is optional. It is not required for `install --claude` or `init`.
 NeMo Agent Toolkit (`nvidia-nat`, CLI `nat`) is a Python framework, not a chat harness. It has no skills directory and no slash commands: agents are YAML workflows that call Python tools. RDAP-Q ships for it as `rdapq-nat`, a pip package in [`integrations/nemo/`](integrations/nemo/) that registers the engine's commands as one tool group (`rdapq__start`, `__plan`, `__check`, `__gate`, `__claim`, `__note`, `__state`). The tools run the same `rdapq.js`, so the verdict still comes from the engine, not the model.
 
 ```bash
-npx --yes github:coldcanuk/rdapq install --nemo     # installs the engine under ~/.rdapq and prints the steps below
-git clone https://github.com/coldcanuk/rdapq.git
+npx --yes github:actviteai/rdapq install --nemo     # installs the engine under ~/.rdapq and prints the steps below
+git clone https://github.com/actviteai/rdapq.git
 pip install "./rdapq/integrations/nemo[agents]"     # into the environment that runs `nat`
 nat run --config_file rdapq/integrations/nemo/examples/workflow.yaml --input "<task>"
 ```
@@ -181,16 +181,16 @@ Edited harness files are kept. Pass `--force` to replace one. The previous file 
 ### This tree (2.0.0, GitHub `main`, not on npm)
 
 ```bash
-git clone https://github.com/coldcanuk/rdapq.git
+git clone https://github.com/actviteai/rdapq.git
 cd rdapq
 ./install.sh --claude
 
 # or, without cloning first:
-npx --yes github:coldcanuk/rdapq install --claude
-npx --yes github:coldcanuk/rdapq install --cursor
-npx --yes github:coldcanuk/rdapq install --codex --grok
-npx --yes github:coldcanuk/rdapq install --all
-npx --yes github:coldcanuk/rdapq install --global-only
+npx --yes github:actviteai/rdapq install --claude
+npx --yes github:actviteai/rdapq install --cursor
+npx --yes github:actviteai/rdapq install --codex --grok
+npx --yes github:actviteai/rdapq install --all
+npx --yes github:actviteai/rdapq install --global-only
 ```
 
 ### Released npm package (1.4.0) <!-- keep-version -->
@@ -213,10 +213,10 @@ Right after a publish, npm may advertise `latest` before the tarball is queryabl
 ### Initialize the current project:
 ```bash
 # This tree:
-npx --yes github:coldcanuk/rdapq init
-npx --yes github:coldcanuk/rdapq init --hook
-npx --yes github:coldcanuk/rdapq init --force
-npx --yes github:coldcanuk/rdapq init --repo /path/to/my-project
+npx --yes github:actviteai/rdapq init
+npx --yes github:actviteai/rdapq init --hook
+npx --yes github:actviteai/rdapq init --force
+npx --yes github:actviteai/rdapq init --repo /path/to/my-project
 
 # Released npm package:
 npx --yes rdap-q@$(npm view rdap-q version) init
@@ -226,7 +226,7 @@ npx --yes rdap-q@$(npm view rdap-q version) init
 
 ### Check installation status:
 ```bash
-npx --yes github:coldcanuk/rdapq status
+npx --yes github:actviteai/rdapq status
 npx --yes rdap-q@$(npm view rdap-q version) status
 ```
 
@@ -245,7 +245,7 @@ rdapq install --claude
 
 Harness homes can be redirected without touching the real user profile. `RDAPQ_HOME`, `GEMINI_HOME`, `GOOSE_HOME`, `CLAUDE_HOME`, `CLINE_HOME`, `GROK_HOME`, `COPILOT_HOME`, `CURSOR_HOME`, `AGENTS_HOME`, and `HERMES_HOME` are all honored.
 
-`npx --yes github:coldcanuk/rdapq` always installs this GitHub tree. `npx --yes rdap-q` installs whatever npm currently tags `latest`.
+`npx --yes github:actviteai/rdapq` always installs this GitHub tree. `npx --yes rdap-q` installs whatever npm currently tags `latest`.
 
 ---
 
@@ -255,7 +255,7 @@ Do not pipe the installer from the network. A piped script cannot see this repos
 
 ### Linux / macOS / WSL:
 ```bash
-git clone https://github.com/coldcanuk/rdapq.git
+git clone https://github.com/actviteai/rdapq.git
 cd rdapq
 ./install.sh --all          # every harness
 ./install.sh --claude       # one harness
@@ -265,7 +265,7 @@ npm test                    # installer, packaging, and version checks
 
 ### Windows (PowerShell):
 ```powershell
-git clone https://github.com/coldcanuk/rdapq.git
+git clone https://github.com/actviteai/rdapq.git
 cd rdapq
 .\install.ps1 -All
 .\install.ps1 -Claude -Force
@@ -290,8 +290,8 @@ These are not inside the skill tree and are kept:
 
 ### This tree (GitHub `main`)
 ```bash
-npx --yes github:coldcanuk/rdapq install --cursor
-npx --yes github:coldcanuk/rdapq status
+npx --yes github:actviteai/rdapq install --cursor
+npx --yes github:actviteai/rdapq status
 ```
 
 Use the same harness flags you used the first time. `--cursor` above is only an example.
@@ -332,14 +332,14 @@ rdapq status
 A re-install that sees a different `AGENTS.md`, `CLAUDE.md`, or other bridge leaves your file in place and writes the packaged copy next to it as `<file>.rdapq`. Diff that sidecar. When you want the packaged text:
 
 ```bash
-npx --yes github:coldcanuk/rdapq install --claude --force
+npx --yes github:actviteai/rdapq install --claude --force
 ```
 
 `--force` copies the current file to `<file>.rdapq-backup`, then writes the new one. It does not delete `$RDAPQ_HOME/memory`.
 
 ### Workspace already initialized
 ```bash
-npx --yes github:coldcanuk/rdapq init
+npx --yes github:actviteai/rdapq init
 ```
 
 That refreshes `.agents/skills/rdap-q/` and creates any bridge that is missing. Add `--force` only when you want the bridges replaced. Start a new harness session afterward so it does not keep the previous `SKILL.md` in context.
@@ -518,7 +518,7 @@ Per-harness homes use <code>AGENTS_HOME</code> (Codex), <code>CURSOR_HOME</code>
 
 <details>
 <summary><strong>Which version does <code>npx rdap-q</code> install?</strong></summary>
-npm <code>latest</code>, which is <strong>1.4.0</strong> (the 1.x protocol). This GitHub tree is <strong>2.0.0</strong> and is not on the registry. Install this tree with <code>npx --yes github:coldcanuk/rdapq</code> or a git clone. Pin a registry install with <code>npx --yes rdap-q@$(npm view rdap-q version)</code>. <!-- keep-version -->
+npm <code>latest</code>, which is <strong>1.4.0</strong> (the 1.x protocol). This GitHub tree is <strong>2.0.0</strong> and is not on the registry. Install this tree with <code>npx --yes github:actviteai/rdapq</code> or a git clone. Pin a registry install with <code>npx --yes rdap-q@$(npm view rdap-q version)</code>. <!-- keep-version -->
 </details>
 
 <details>
@@ -538,11 +538,11 @@ This project is licensed under the **GNU General Public License v3.0** (GPL-3.0-
 
 Contributions are welcome, especially new harnesses, new eval tasks, and oracle improvements backed by eval results:
 
-1. Fork the repository: [https://github.com/coldcanuk/rdapq](https://github.com/coldcanuk/rdapq)
+1. Fork the repository: [https://github.com/actviteai/rdapq](https://github.com/actviteai/rdapq)
 2. Create a feature branch: `git checkout -b feature/new-harness-support`
 3. Run `npm test` (Node.js 22+). It checks the installer, the engine, the eval tasks, the npm tarball, and version consistency. Protocol changes should also come with an eval run.
 4. To cut a release, run `npm version <patch|minor|major>`. It stamps the version into every manifest and bridge (see `scripts/version-targets.js`), regenerates `integrations/hermes/` and `plugins/rdap-q/skills/rdap-q/`, and commits and tags `vX.Y.Z`. After changing anything in `rdap-q-skill/`, run `npm run sync` so both generated copies (the Hermes URL install and the marketplace plugin's skill) match; `npm test` fails until they do. Never edit version stamps by hand; `npm run stamp` repairs drift. A README line that must name an older version (release history, eval baselines, the npm `latest` that is not this tree) ends with `<!-- keep-version -->`. `.github/workflows/release.yml` only verifies a `v*` tag (`npm test`, and the tag matches `package.json`); CI holds no npm token and never publishes. A maintainer stages the package from a clean checkout of the tagged commit after `npm test`, then publishes it by hand with npm two-factor authentication. `npm test` fails if `npm pack` would ship a file git does not track. Wait until `npm view rdap-q version` matches the tag before telling people to run `npx`; npm can take a few minutes to serve a new version. Publish this 2.0.0 tree only after the eval ship gate passes; npm `latest` is 1.4.0. <!-- keep-version -->
 5. Submit a Pull Request.
 
 **Maintained by:** [@coldcanuk](https://github.com/coldcanuk)  
-**Issues & Discussions:** [https://github.com/coldcanuk/rdapq/issues](https://github.com/coldcanuk/rdapq/issues)
+**Issues & Discussions:** [https://github.com/actviteai/rdapq/issues](https://github.com/actviteai/rdapq/issues)

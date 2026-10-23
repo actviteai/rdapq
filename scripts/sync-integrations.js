@@ -7,7 +7,7 @@
  * integrations/hermes/  The Hermes Agent skill that installs from a URL
  *   without the Node installer:
  *
- *     hermes skills install https://raw.githubusercontent.com/coldcanuk/rdapq/main/integrations/hermes/SKILL.md
+ *     hermes skills install https://raw.githubusercontent.com/actviteai/rdapq/main/integrations/hermes/SKILL.md
  *
  *   A URL install fetches SKILL.md, then only the files it names under
  *   scripts/, references/, templates/, assets/, or examples/. Raw GitHub URLs

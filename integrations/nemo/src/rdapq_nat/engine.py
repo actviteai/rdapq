@@ -45,7 +45,7 @@ def resolve_engine(rdapq_js_path: str | None, node: str = "node", env: Mapping[s
     if not engine.is_file():
         raise EngineNotFound(
             f"RDAP-Q engine not found at {engine}. Install it with "
-            "`npx --yes github:coldcanuk/rdapq install --global-only`, or set rdapq_js_path."
+            "`npx --yes github:actviteai/rdapq install --global-only`, or set rdapq_js_path."
         )
     return node_exe, str(engine)
 

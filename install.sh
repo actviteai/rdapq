@@ -8,7 +8,7 @@ if [[ -z "${BASH_SOURCE[0]:-}" || "${BASH_SOURCE[0]}" == "-" || ! -f "${BASH_SOU
   echo "error: refusing a piped install (curl | bash / bash -s)." >&2
   echo "That path cannot see the skill tree and used to delete an existing install before failing." >&2
   echo "Use one of:" >&2
-  echo "  git clone https://github.com/coldcanuk/rdapq.git && cd rdapq && ./install.sh --all" >&2
+  echo "  git clone https://github.com/actviteai/rdapq.git && cd rdapq && ./install.sh --all" >&2
   echo "  npx rdap-q install --all" >&2
   exit 1
 fi

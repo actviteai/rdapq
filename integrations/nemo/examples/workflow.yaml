@@ -1,7 +1,7 @@
 # RDAP-Q in a NeMo Agent Toolkit workflow.
 #
 #   pip install "./integrations/nemo[agents]"
-#   npx --yes github:coldcanuk/rdapq install --global-only    # the engine, at ~/.rdapq
+#   npx --yes github:actviteai/rdapq install --global-only    # the engine, at ~/.rdapq
 #   export OPENAI_API_KEY=...                                   # see llms: below
 #   RDAPQ_REPO=/path/to/repo nat run --config_file integrations/nemo/examples/workflow.yaml \
 #     --input "Fix the off-by-one in src/range.js"
