@@ -8,7 +8,11 @@
     "rdap-q": "./bin/rdapq.js",
     "rdapq-install": "./bin/rdapq.js"
   },
-  "author": "coldcanuk",
+  "author": {
+    "name": "coldcanuk",
+    "email": "chuck@actvite.com",
+    "url": "https://actvite.com"
+  },
   "license": "GPL-3.0-or-later",
   "homepage": "https://github.com/actviteai/rdapq#readme",
   "repository": {

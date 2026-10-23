@@ -9,7 +9,7 @@ description = "RDAP-Q for NVIDIA NeMo Agent Toolkit: a bundled engine runs the c
 readme = "README.md"
 license = "GPL-3.0-or-later"
 requires-python = ">=3.11,<3.14"
-authors = [{ name = "coldcanuk" }]
+authors = [{ name = "coldcanuk", email = "chuck@actvite.com" }]
 keywords = ["rdap-q", "nemo-agent-toolkit", "nvidia-nat", "quality-gates", "coding-agent"]
 classifiers = [
   "Programming Language :: Python :: 3",

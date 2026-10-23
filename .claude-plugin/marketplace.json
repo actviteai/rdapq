@@ -3,7 +3,7 @@
   "description": "RDAP-Q: Research-Driven Adaptive Planning with Quality Gates protocol for Claude Code.",
   "owner": {
     "name": "coldcanuk",
-    "email": "coldcanuk@users.noreply.github.com"
+    "email": "chuck@actvite.com"
   },
   "plugins": [
     {
@@ -12,7 +12,9 @@
       "description": "Evidence-first engineering protocol for AI coding agents. A bundled tool runs the checks and names the result, so the model never grades its own work.",
       "category": "development",
       "author": {
-        "name": "coldcanuk"
+        "name": "coldcanuk",
+        "email": "chuck@actvite.com",
+        "url": "https://actvite.com"
       },
       "homepage": "https://github.com/actviteai/rdapq",
       "tags": [

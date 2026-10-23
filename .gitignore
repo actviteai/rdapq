@@ -45,10 +45,22 @@ secrets.json
 # ------------------------------------------------------------------------------
 # AI Agent & Harness Artifacts
 # ------------------------------------------------------------------------------
-# Claude Code / Anthropic
-.claude/history/
-.claude/sessions/
-.claude/cache/
+# Agent harness folders are local by default: settings, sessions, caches,
+# and other skills never get committed. Only the files this repository
+# ships are un-ignored.
+.claude/*
+!.claude/commands/
+.claude/commands/*
+!.claude/commands/rdapq.md
+.grok/*
+!.grok/rules.md
+.agents/*
+!.agents/skills/
+.agents/skills/*
+!.agents/skills/rdap-q
+.agent/
+.codex/
+.copilot/
 *.claude.json
 
 # Cline & Roo Code
@@ -61,13 +73,8 @@ secrets.json
 .goose/
 .goosehints.local
 
-# GitHub Copilot & VS Code
-.copilot/
+# GitHub Copilot
 .copilot-history/
-
-# OpenAI Codex & Grok
-.codex/sessions/
-.grok/sessions/
 
 # ------------------------------------------------------------------------------
 # Operating System Artifacts
