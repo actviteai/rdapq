@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # Install the skill tree into $RDAPQ_HOME. Stage first, swap only after SKILL.md
 # is present, so a failed copy cannot delete a working install.
-# Prefer the repo installer (./install.sh or npx rdap-q) when you have the full checkout.
+# Prefer the repo installer (./install.sh or npx @actvite/rdapq) when you have the full checkout.
 set -eu
 
 SOURCE_DIR="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"

@@ -9,7 +9,7 @@ if [[ -z "${BASH_SOURCE[0]:-}" || "${BASH_SOURCE[0]}" == "-" || ! -f "${BASH_SOU
   echo "That path cannot see the skill tree and used to delete an existing install before failing." >&2
   echo "Use one of:" >&2
   echo "  git clone https://github.com/actviteai/rdapq.git && cd rdapq && ./install.sh --all" >&2
-  echo "  npx rdap-q install --all" >&2
+  echo "  npx @actvite/rdapq install --all" >&2
   exit 1
 fi
 
@@ -21,7 +21,7 @@ if [[ ! -f "$SCRIPT_DIR/rdap-q-skill/SKILL.md" || ! -f "$SCRIPT_DIR/bin/rdapq.js
 fi
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "error: Node.js >= 22 is required. Install Node, then re-run ./install.sh or use npx rdap-q." >&2
+  echo "error: Node.js >= 22 is required. Install Node, then re-run ./install.sh or use npx @actvite/rdapq." >&2
   exit 1
 fi
 
