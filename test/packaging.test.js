@@ -76,3 +76,10 @@ test('npm pack ships only tracked files, even from a dirty checkout', (t) => {
   });
   assert.deepEqual(untracked, []);
 });
+
+test('package.json points at the actviteai/rdapq repository', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
+  assert.equal(pkg.repository.url, 'git+https://github.com/actviteai/rdapq.git');
+  assert.equal(pkg.homepage, 'https://github.com/actviteai/rdapq#readme');
+  assert.equal(pkg.bugs.url, 'https://github.com/actviteai/rdapq/issues');
+});
