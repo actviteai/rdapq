@@ -101,3 +101,27 @@ test('package and plugin manifests name the actvite.com owner', () => {
   assert.deepEqual(read('plugins/rdap-q/plugin.json').author, author);
   assert.match(fs.readFileSync(path.join(REPO, 'integrations/nemo/pyproject.toml'), 'utf8'), /authors = \[\{ name = "coldcanuk", email = "chuck@actvite\.com" \}\]/);
 });
+
+test('the npm package is @actvite/rdapq with publish-safe bins', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(REPO, 'package.json'), 'utf8'));
+  assert.equal(pkg.name, '@actvite/rdapq');
+  assert.equal(pkg.publishConfig && pkg.publishConfig.access, 'public');
+  // The commands keep their names; only the package moved.
+  assert.deepEqual(pkg.bin, { rdapq: 'bin/rdapq.js', 'rdap-q': 'bin/rdapq.js', 'rdapq-install': 'bin/rdapq.js' });
+});
+
+test('npm pkg fix leaves package.json alone, so publish keeps every field', () => {
+  // npm publish silently drops fields it has to correct; it removed "./bin/rdapq.js" bins.
+  const dir = fs.mkdtempSync(path.join(require('os').tmpdir(), 'rdapq-pkgfix-'));
+  const original = fs.readFileSync(path.join(REPO, 'package.json'), 'utf8');
+  fs.writeFileSync(path.join(dir, 'package.json'), original);
+  const res = spawnSync('npm', ['pkg', 'fix'], { cwd: dir, encoding: 'utf8' });
+  assert.equal(res.status, 0, res.stderr);
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')), JSON.parse(original));
+});
+
+test('install commands use @actvite/rdapq; unscoped rdap-q appears only as the legacy 1.x package', () => {
+  const res = spawnSync('git', ['grep', '-nE', '(npx|install -g|npm view|npm i)( --yes)? rdap-q([@ ]|$)|npmjs\\.com/package/rdap-q', '--', '.', ':!test/packaging.test.js', ':!CHANGELOG.md', ':!docs'], { cwd: REPO, encoding: 'utf8' });
+  const lines = res.stdout.split('\n').filter(Boolean).filter((line) => !/legacy|1\.4\.0|1\.x/i.test(line));
+  assert.deepEqual(lines, []);
+});

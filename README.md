@@ -3,7 +3,7 @@
 [![CI](https://github.com/actviteai/rdapq/actions/workflows/ci.yml/badge.svg)](https://github.com/actviteai/rdapq/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/actviteai/rdapq)
-[![npm](https://img.shields.io/npm/v/rdap-q.svg)](https://www.npmjs.com/package/rdap-q)
+[![npm](https://img.shields.io/npm/v/@actvite/rdapq.svg)](https://www.npmjs.com/package/@actvite/rdapq)
 
 Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. Framework: NVIDIA NeMo Agent Toolkit. See [Harness install](#in-harness-marketplace-installation).
 
@@ -13,7 +13,7 @@ Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google
 
 > **RDAP-Q: Research-Driven Adaptive Planning with Quality Gates** — an evidence-first protocol and skill for AI coding agents in **Codex, Grok, Copilot, Antigravity, Goose, Claude, Cline, Cursor, and Hermes Agent**. A bundled tool runs the checks and names the result, so the model never grades its own work.
 
-This GitHub tree is protocol **2.0.0**. It is on `main` and is not published to npm: the 2.0 eval ship gate did not pass, so there is no `rdap-q@2.0.0` registry package and no `v2.0.0` git tag. The npm package [`rdap-q`](https://www.npmjs.com/package/rdap-q) `latest` is **1.4.0** (the 1.x protocol). Confirm with `npm view rdap-q version`. <!-- keep-version -->
+This GitHub tree is protocol **2.0.0**. It is on `main` and is not published to npm: the 2.0 eval ship gate did not pass, so there is no `@actvite/rdapq@2.0.0` registry package and no `v2.0.0` git tag. Releases publish as [`@actvite/rdapq`](https://www.npmjs.com/package/@actvite/rdapq), which has no release yet. The 1.x protocol is the legacy unscoped package `rdap-q`, last released as **1.4.0**. <!-- keep-version -->
 
 ---
 
@@ -90,7 +90,7 @@ This package is not in the Anthropic, xAI, or GitHub Copilot catalogs. Do not us
 
 `install --<harness>` writes that harness's user files. `init` writes the project files. A harness slash command is `/rdap-q` when the client loads `SKILL.md`. `/rdapq` works where a project bridge or Claude command file is present.
 
-`npx --yes rdap-q` and `npx --yes rdap-q@latest` install npm `latest`, which is **1.4.0**. To install **this** 2.0.0 tree, clone the repo or use the GitHub specifier below. <!-- keep-version -->
+`npx --yes @actvite/rdapq` installs npm `latest` once the package has a release. To install **this** 2.0.0 tree, clone the repo or use the GitHub specifier below. The legacy `npx --yes @actvite/rdapq` still installs 1.4.0, the 1.x protocol. <!-- keep-version -->
 
 | Harness | User install | What it writes | Project install (`init`) | Invoke |
 | :--- | :--- | :--- | :--- | :--- |
@@ -133,8 +133,8 @@ npx --yes github:actviteai/rdapq install --codex --claude
 npx --yes github:actviteai/rdapq install --hermes
 npx --yes github:actviteai/rdapq init
 
-# Released npm package (pin; latest is 1.4.0): <!-- keep-version -->
-npx --yes rdap-q@$(npm view rdap-q version) install --cursor
+# Released npm package (after the first @actvite/rdapq release; pin it):
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --cursor
 ```
 
 Claude Code can also add this repository as a plugin marketplace from inside a session, because `.claude-plugin/marketplace.json` is in the repo:
@@ -193,20 +193,20 @@ npx --yes github:actviteai/rdapq install --all
 npx --yes github:actviteai/rdapq install --global-only
 ```
 
-### Released npm package (1.4.0) <!-- keep-version -->
+### Released npm package
 
-[`rdap-q`](https://www.npmjs.com/package/rdap-q) on the public registry. Pin the version; `@latest` currently resolves to 1.4.0, which is the 1.x protocol. <!-- keep-version -->
+[`@actvite/rdapq`](https://www.npmjs.com/package/@actvite/rdapq) on the public registry. It has no release yet; until it does, use this GitHub tree. Pin the version once it is published. The legacy unscoped `rdap-q` (last release 1.4.0, the 1.x protocol) is no longer updated. <!-- keep-version -->
 
 ```bash
-# Pin npm latest (1.4.0). <!-- keep-version -->
-npx --yes rdap-q@$(npm view rdap-q version) install --claude
-npx --yes rdap-q@$(npm view rdap-q version) install --cursor
-npx --yes rdap-q@$(npm view rdap-q version) install --codex --grok
-npx --yes rdap-q@$(npm view rdap-q version) install --all
-npx --yes rdap-q@$(npm view rdap-q version) install --global-only
+# Pin npm latest.
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --claude
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --cursor
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --codex --grok
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --all
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --global-only
 ```
 
-Right after a publish, npm may advertise `latest` before the tarball is queryable. `npm error notarget No matching version found for rdap-q@x.y.z` is that window, or a stale local cache. Wait until `npm view rdap-q version` prints the version you expect, then pin as above. `npm cache clean --force` if a cached packument still names the previous latest.
+Right after a publish, npm may advertise `latest` before the tarball is queryable. `npm error notarget No matching version found for @actvite/rdapq@x.y.z` is that window, or a stale local cache. Wait until `npm view @actvite/rdapq version` prints the version you expect, then pin as above. `npm cache clean --force` if a cached packument still names the previous latest.
 
 `--global-only` writes `$RDAPQ_HOME` (default `~/.rdapq`): `skills/rdap-q/`, plus empty `memory/`, `projects/`, and `registry/` directories. It does not create harness bridges.
 
@@ -219,7 +219,7 @@ npx --yes github:actviteai/rdapq init --force
 npx --yes github:actviteai/rdapq init --repo /path/to/my-project
 
 # Released npm package:
-npx --yes rdap-q@$(npm view rdap-q version) init
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) init
 ```
 
 `init` writes `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.clinerules/rdapq.md`, `.goosehints`, `.grok/rules.md`, `.github/copilot-instructions.md`, `.claude/commands/rdapq.md`, and skill trees at `.agents/skills/rdap-q/` and `.claude/skills/rdap-q/`. Cursor, Codex, Copilot, Antigravity, and Goose read `.agents/skills`. Claude Code and Cline read `.claude/skills`.
@@ -227,13 +227,13 @@ npx --yes rdap-q@$(npm view rdap-q version) init
 ### Check installation status:
 ```bash
 npx --yes github:actviteai/rdapq status
-npx --yes rdap-q@$(npm view rdap-q version) status
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) status
 ```
 
 ### Install the command globally:
 ```bash
-# Released npm package (1.4.0): <!-- keep-version -->
-npm install -g rdap-q@$(npm view rdap-q version)
+# Released npm package:
+npm install -g @actvite/rdapq@$(npm view @actvite/rdapq version)
 rdapq install --claude
 rdapq status
 rdapq init
@@ -245,7 +245,7 @@ rdapq install --claude
 
 Harness homes can be redirected without touching the real user profile. `RDAPQ_HOME`, `GEMINI_HOME`, `CLAUDE_HOME`, `CLINE_HOME`, `GROK_HOME`, `COPILOT_HOME`, `CURSOR_HOME`, `AGENTS_HOME`, and `HERMES_HOME` are all honored.
 
-`npx --yes github:actviteai/rdapq` always installs this GitHub tree. `npx --yes rdap-q` installs whatever npm currently tags `latest`.
+`npx --yes github:actviteai/rdapq` always installs this GitHub tree. `npx --yes @actvite/rdapq` installs whatever npm currently tags `latest`.
 
 ---
 
@@ -316,14 +316,14 @@ There is no `v2.0.0` tag. `git checkout v1.4.0` is the last tagged release. <!--
 
 ### Released npm package
 ```bash
-# Pin; @latest is 1.4.0 and is the 1.x protocol. <!-- keep-version -->
-npx --yes rdap-q@$(npm view rdap-q version) install --cursor
-npx --yes rdap-q@$(npm view rdap-q version) status
+# Pin the version.
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --cursor
+npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) status
 ```
 
 ### Command installed globally
 ```bash
-npm install -g rdap-q@$(npm view rdap-q version)
+npm install -g @actvite/rdapq@$(npm view @actvite/rdapq version)
 rdapq install --cursor
 rdapq status
 ```
@@ -371,7 +371,7 @@ In the agent:
 | `/rdapq audit` | Adversarial audit checklist, then check and gate again. |
 | `/rdapq memory <terms>` | Search durable memory (at most 12 records). |
 
-The engine, run by the agent or by you (`node .agents/skills/rdap-q/tool/rdapq.js <command>`, or `rdapq <command>` after `npm install -g rdap-q`):
+The engine, run by the agent or by you (`node .agents/skills/rdap-q/tool/rdapq.js <command>`, or `rdapq <command>` after `npm install -g @actvite/rdapq`):
 
 | Command | Meaning |
 | :--- | :--- |
@@ -517,8 +517,8 @@ Per-harness homes use <code>AGENTS_HOME</code> (Codex), <code>CURSOR_HOME</code>
 </details>
 
 <details>
-<summary><strong>Which version does <code>npx rdap-q</code> install?</strong></summary>
-npm <code>latest</code>, which is <strong>1.4.0</strong> (the 1.x protocol). This GitHub tree is <strong>2.0.0</strong> and is not on the registry. Install this tree with <code>npx --yes github:actviteai/rdapq</code> or a git clone. Pin a registry install with <code>npx --yes rdap-q@$(npm view rdap-q version)</code>. <!-- keep-version -->
+<summary><strong>Which version does <code>npx @actvite/rdapq</code> install?</strong></summary>
+npm <code>latest</code> of <code>@actvite/rdapq</code>, which has no release yet. This GitHub tree is <strong>2.0.0</strong> and is not on the registry. Install this tree with <code>npx --yes github:actviteai/rdapq</code> or a git clone. Pin a registry install with <code>npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version)</code>. The legacy unscoped <code>rdap-q</code> package is the 1.x protocol (last release 1.4.0). <!-- keep-version -->
 </details>
 
 <details>

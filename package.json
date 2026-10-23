@@ -1,12 +1,12 @@
 {
-  "name": "rdap-q",
+  "name": "@actvite/rdapq",
   "version": "2.0.0",
   "description": "Research-Driven Adaptive Planning with Quality Gates (RDAP-Q) — evidence-first protocol and skill for AI coding agents. A bundled tool runs the checks and names the result, so the model never grades itself. Codex, Grok, Copilot, Antigravity, Goose, Claude, Cline, and Cursor.",
   "main": "rdap-q-skill/SKILL.md",
   "bin": {
-    "rdapq": "./bin/rdapq.js",
-    "rdap-q": "./bin/rdapq.js",
-    "rdapq-install": "./bin/rdapq.js"
+    "rdapq": "bin/rdapq.js",
+    "rdap-q": "bin/rdapq.js",
+    "rdapq-install": "bin/rdapq.js"
   },
   "author": {
     "name": "coldcanuk",
@@ -14,6 +14,9 @@
     "url": "https://actvite.com"
   },
   "license": "GPL-3.0-or-later",
+  "publishConfig": {
+    "access": "public"
+  },
   "homepage": "https://github.com/actviteai/rdapq#readme",
   "repository": {
     "type": "git",

@@ -47,7 +47,7 @@ const bin = pkg.bin || {};
 if (bin['rdapq-install'] && String(bin['rdapq-install']).includes('install.sh')) {
   failures.push('package.json bin.rdapq-install must not point at the shell script');
 }
-if (bin.rdapq !== './bin/rdapq.js' || bin['rdap-q'] !== './bin/rdapq.js') {
+if (bin.rdapq !== 'bin/rdapq.js' || bin['rdap-q'] !== 'bin/rdapq.js') {
   failures.push('package.json bin entries must point at bin/rdapq.js');
 }
 

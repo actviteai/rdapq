@@ -24,7 +24,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 if (-not $PSCommandPath) {
-    Write-Error "refusing a piped install (irm | iex). Use: npx rdap-q install --all`nOr clone the repo and run .\install.ps1 -All"
+    Write-Error "refusing a piped install (irm | iex). Use: npx @actvite/rdapq install --all`nOr clone the repo and run .\install.ps1 -All"
     exit 1
 }
 
@@ -39,7 +39,7 @@ if (-not (Test-Path -LiteralPath $Skill) -or -not (Test-Path -LiteralPath $Cli))
 
 $Node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $Node) {
-    Write-Error "Node.js >= 22 is required. Install Node, then re-run .\install.ps1 or use npx rdap-q."
+    Write-Error "Node.js >= 22 is required. Install Node, then re-run .\install.ps1 or use npx @actvite/rdapq."
     exit 1
 }
 
