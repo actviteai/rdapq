@@ -469,8 +469,8 @@ The roadmap's ship gate for 2.0 was a lower false-COMPLETE rate at equal or lowe
 ```text
 rdapq/
 ├── AGENTS.md, CLAUDE.md, GEMINI.md, .clinerules, .goosehints   # harness bridges
-├── .claude/commands/rdapq.md     # Claude Code /rdapq command
-├── .github/copilot-instructions.md, .grok/rules.md
+├── .github/copilot-instructions.md   # Copilot bridge
+├── bridges/                      # copied into projects by init: claude/commands/rdapq.md, grok/rules.md
 ├── bin/rdapq.js                  # CLI: install, init, status, and task commands
 ├── lib/installer.js              # installer implementation
 ├── lib/hermes.js                 # Hermes Agent frontmatter render and checks

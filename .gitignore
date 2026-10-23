@@ -45,19 +45,11 @@ secrets.json
 # ------------------------------------------------------------------------------
 # AI Agent & Harness Artifacts
 # ------------------------------------------------------------------------------
-# Agent harness folders are local by default: settings, sessions, caches,
-# and other skills never get committed. Only the files this repository
-# ships are un-ignored.
-.claude/*
-!.claude/commands/
-.claude/commands/*
-!.claude/commands/rdapq.md
-.grok/*
-!.grok/rules.md
-.agents/*
-!.agents/skills/
-.agents/skills/*
-!.agents/skills/rdap-q
+# Agent harness folders are local to each machine and never committed.
+# The Claude command and Grok rules that `init` writes live in bridges/.
+.claude/
+.grok/
+.agents/
 .agent/
 .codex/
 .copilot/
@@ -163,6 +155,4 @@ temp/
 .worktrees/
 git-worktrees/
 
-# Pack bookkeeping (never part of the protocol)
-.rdapq-pack-state.json
 

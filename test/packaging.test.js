@@ -5,40 +5,27 @@ const { spawnSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
-const { LINKS, restore } = require('../scripts/materialize-skill-links');
 
 const REPO = path.resolve(__dirname, '..');
 
-function isSymlink(rel) {
-  return fs.lstatSync(path.join(REPO, rel)).isSymbolicLink();
-}
-
-test('npm pack includes marketplace skill bodies and restores symlinks', () => {
-  for (const rel of LINKS) assert.equal(isSymlink(rel), true, rel);
-  let packed = null;
-  try {
-    const result = spawnSync('npm', ['pack', '--json', '--ignore-scripts=false'], {
-      cwd: REPO,
-      encoding: 'utf8',
-    });
-    assert.equal(result.status, 0, result.stderr || result.stdout);
-    const parsed = JSON.parse(result.stdout);
-    const entry = Array.isArray(parsed) ? parsed[0] : parsed;
-    packed = path.join(REPO, entry.filename);
-    const paths = (entry.files || []).map((file) => file.path);
-    assert.ok(paths.some((item) => item.endsWith('plugins/rdap-q/skills/rdap-q/SKILL.md')), paths.filter((item) => item.includes('skills/rdap-q')).join('\n'));
-    assert.ok(paths.some((item) => item.endsWith('.agents/skills/rdap-q/SKILL.md')));
-    assert.ok(paths.some((item) => item.endsWith('package/lib/installer.js') || item.endsWith('lib/installer.js')));
+test('npm pack includes the skill, bridges, and marketplace copy, and no agent folders', () => {
+  const result = spawnSync('npm', ['pack', '--dry-run', '--json'], { cwd: REPO, encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  const parsed = JSON.parse(result.stdout);
+  const paths = ((Array.isArray(parsed) ? parsed[0] : parsed).files || []).map((file) => file.path);
+  for (const want of [
+    'rdap-q-skill/SKILL.md',
+    'rdap-q-skill/tool/rdapq.js',
+    'plugins/rdap-q/skills/rdap-q/SKILL.md',
+    'lib/installer.js',
     // install --hermes renders SKILL.md with lib/hermes.js at install time.
-    assert.ok(paths.some((item) => item.endsWith('lib/hermes.js')), 'lib/hermes.js must be packed');
-  } finally {
-    restore();
-    if (packed && fs.existsSync(packed)) fs.unlinkSync(packed);
-    const stray = fs.readdirSync(REPO).filter((name) => name.endsWith('.tgz'));
-    for (const name of stray) fs.unlinkSync(path.join(REPO, name));
-  }
-  for (const rel of LINKS) assert.equal(isSymlink(rel), true, `${rel} was not restored`);
-  assert.equal(fs.existsSync(path.join(REPO, '.rdapq-pack-state.json')), false);
+    'lib/hermes.js',
+    // install --claude and init copy these into the harness and the project.
+    'bridges/claude/commands/rdapq.md',
+    'bridges/grok/rules.md',
+    '.github/copilot-instructions.md',
+  ]) assert.ok(paths.includes(want), `missing ${want}`);
+  assert.deepEqual(paths.filter((rel) => /^\.(claude|grok|agents|agent|codex|copilot)\//.test(rel)), []);
 });
 
 test('npm pack ships only tracked files, even from a dirty checkout', (t) => {
@@ -69,11 +56,8 @@ test('npm pack ships only tracked files, even from a dirty checkout', (t) => {
   assert.equal(result.status, 0, result.stderr || result.stdout);
   const parsed = JSON.parse(result.stdout);
   const entry = Array.isArray(parsed) ? parsed[0] : parsed;
-  const untracked = (entry.files || []).map((file) => file.path).filter((rel) => {
-    if (rel === 'package.json' || tracked.has(rel)) return false;
-    const link = LINKS.find((l) => rel.startsWith(`${l}/`));
-    return !(link && tracked.has(`rdap-q-skill/${rel.slice(link.length + 1)}`));
-  });
+  const untracked = (entry.files || []).map((file) => file.path)
+    .filter((rel) => rel !== 'package.json' && !tracked.has(rel));
   assert.deepEqual(untracked, []);
 });
 
@@ -89,16 +73,17 @@ test('no tracked file points at the old coldcanuk/rdapq repository', () => {
   assert.equal(res.stdout, '', res.stdout);
 });
 
-test('.gitignore keeps harness folders local except the files rdapq ships', () => {
+test('.gitignore keeps every agent harness folder out of the repository', () => {
   const ignored = (rel) => spawnSync('git', ['check-ignore', '-q', '--no-index', rel], { cwd: REPO }).status === 0;
   for (const rel of [
-    '.claude/settings.local.json', '.claude/settings.json', '.claude/sessions/x', '.claude/commands/other.md', '.claude/skills/rdap-q/SKILL.md',
-    '.grok/sessions/x', '.grok/skills/rdap-q/SKILL.md', '.agents/other', '.agents/skills/other/SKILL.md',
-    '.agent/x', '.codex/x', '.copilot/x', '.worktrees/x',
+    '.claude/settings.local.json', '.claude/commands/rdapq.md', '.claude/skills/rdap-q/SKILL.md',
+    '.grok/rules.md', '.agents/skills/rdap-q/SKILL.md', '.agent/x', '.codex/x', '.copilot/x', '.worktrees/x',
   ]) assert.equal(ignored(rel), true, `${rel} should be ignored`);
-  for (const rel of ['.claude/commands/rdapq.md', '.grok/rules.md', '.agents/skills/rdap-q']) {
+  for (const rel of ['.claude-plugin/marketplace.json', 'bridges/claude/commands/rdapq.md', 'bridges/grok/rules.md']) {
     assert.equal(ignored(rel), false, `${rel} must stay tracked`);
   }
+  const tracked = spawnSync('git', ['ls-files', '.claude', '.grok', '.agents', '.agent', '.codex', '.copilot'], { cwd: REPO, encoding: 'utf8' }).stdout;
+  assert.equal(tracked, '');
   assert.equal(spawnSync('git', ['ls-files', '-ci', '--exclude-standard'], { cwd: REPO, encoding: 'utf8' }).stdout, '');
 });
 
