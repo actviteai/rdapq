@@ -197,9 +197,10 @@ The engine, run by the agent or by you (`node .agents/skills/rdap-q/tool/rdapq.j
 | `gate [--json]` | Reprint the terminal state without running anything. Exit code 0 COMPLETE, 3 CONTINUE, 1 otherwise. |
 | `claim "<fact>" [--external] [--source s] [--verified] [--off-path]` | Record a claim for the external and claims oracles. |
 | `note decision\|assumption\|risk\|question\|blocker "<text>"` | Log a note. A blocker makes the gate report BLOCKED. |
-| `state [--json]` | Task summary. `--json` prints one JSON object (`spec`, `required`, `rounds`, `lastCheck`, `notes`, `gate`) and writes nothing. |
+| `state [--json]` | Task summary. `--json` prints one JSON object (`spec`, `required`, `rounds`, `lastCheck`, `notes`, `gate`, `outcome`) and writes nothing. |
+| `outcome accepted\|revised\|rejected [--why "<text>"] [--task <id>]` | What happened to the work after the gate, set by the reviewer or CI, never by the agent: accepted (shipped as the gate measured it), revised (shipped after changes the gate did not ask for), rejected (discarded). `--task` labels an archived task by id. |
 | `memory add\|search\|stale\|stats\|compact` | Durable memory. |
-| `export --out <file> [--repo <dir>]...` | Append anonymized measurement rows (no text, paths, or code) for training or eval. |
+| `export --out <file> [--repo <dir>]...` | Append one anonymized row per task, current and archived (no text, paths, or code), with the gate's verdict and the reviewer's outcome side by side. |
 | `protocol [--json]` | The risks, required oracles, weights, and what every score means. |
 | `hook-stop` | Claude Code Stop hook. |
 
@@ -237,7 +238,7 @@ Coverage is the one oracle that looks at the request rather than the code. In th
 ```
 <repo>/.rdapq/
 ├── oracles.json     # what "done" means: id, risk, task, requirements, files, commands, repro (start, plan, req)
-├── state.jsonl      # append-only: start, plan, req, cover, check, gate, claim, note, stop
+├── state.jsonl      # append-only: start, plan, req, cover, check, gate, claim, note, stop, outcome
 ├── rounds/<n>.patch # the exact diff each check round measured
 ├── archive/<time>/  # the previous task (oracles.json, state.jsonl, rounds/), moved whole by the next start
 └── depth            # optional: "full" to default this repo to full depth
@@ -248,7 +249,7 @@ $RDAPQ_HOME/ (default ~/.rdapq)
 └── projects/<id>/records.jsonl       # per-project memory
 ```
 
-The agent never reads or rewrites task files; the tool appends to them. That split is what keeps the protocol cheap: the model sees a few lines per command, while the record on disk holds the task statement, each requirement and its cover, every command's exit code and duration, the diff statistics and full patch of every round, each verdict, and every stop the Claude Code hook refused. `export` turns that record into one anonymized row per task (counts, scores, verdicts; never text, paths, or code). Memory records are one line each, with provenance (`class`, `evidence`, `verified` date) and status (`ACTIVE`, `STALE`, `SUPERSEDED`, `INVALID`). The tool enforces the rules instead of asking the model to: facts up to 240 characters, evidence up to 160, at most 80 active global and 40 active project records, no duplicates, and nothing that looks like a secret. `memory search` returns at most 12 matching records, so memory never loads in bulk. `memory compact` moves retired records to `archive/YYYY-MM.jsonl`.
+The agent never reads or rewrites task files; the tool appends to them. That split is what keeps the protocol cheap: the model sees a few lines per command, while the record on disk holds the task statement, each requirement and its cover, every command's exit code and duration, the diff statistics and full patch of every round, each verdict, every stop the Claude Code hook refused, and the outcome the reviewer set afterwards. The verdict is the gate's prediction and the outcome is the truth, which is what a training set needs; the agent never sets the outcome, and `SKILL.md` does not mention the command. `export` turns every task record, current and archived, into one anonymized row (counts, scores, verdict, outcome; never text, paths, or code). Memory records are one line each, with provenance (`class`, `evidence`, `verified` date) and status (`ACTIVE`, `STALE`, `SUPERSEDED`, `INVALID`). The tool enforces the rules instead of asking the model to: facts up to 240 characters, evidence up to 160, at most 80 active global and 40 active project records, no duplicates, and nothing that looks like a secret. `memory search` returns at most 12 matching records, so memory never loads in bulk. `memory compact` moves retired records to `archive/YYYY-MM.jsonl`.
 
 ---
 

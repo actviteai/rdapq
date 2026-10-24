@@ -610,3 +610,41 @@ test('protocol prints the constants the docs are rendered from, with both ends o
   assert.match(text, /Q, the weighted mean, 0-10: 10 omega \(every measured oracle passed\); 8\+ strong .*; 0 alpha \(no measured oracle passed\)/);
   assert.match(text, /memory confidence, 0-10: 10 primary source read, and reproduced; .*; 0 a guess/);
 });
+
+test('outcome labels the task after the gate, current or archived, and export carries it beside the verdict', () => {
+  const root = fixture();
+  const first = rdapq(root, ['start', '--risk', 'LOW', '--task', 'make add add', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
+  const firstId = first.out.match(/started (T-\d{8}-[0-9a-f]{4})/)[1];
+  fix(root);
+  cover(root);
+  assert.match(rdapq(root, ['check']).out, /COMPLETE/);
+  const bad = rdapq(root, ['outcome', 'shipped']);
+  assert.equal(bad.code, 2);
+  assert.match(bad.err, /accepted\|revised\|rejected/);
+  const labelled = rdapq(root, ['outcome', 'accepted', '--why', 'merged as is']);
+  assert.equal(labelled.code, 0);
+  assert.match(labelled.out, new RegExp(`${firstId}: outcome accepted .*; gate said COMPLETE`));
+  assert.match(rdapq(root, ['state']).out, /outcome: accepted \(merged as is\)/);
+  assert.equal(JSON.parse(rdapq(root, ['state', '--json']).out).outcome.label, 'accepted');
+  const last = readLog(root).pop();
+  assert.deepEqual([last.kind, last.label, last.why, last.verdict], ['outcome', 'accepted', 'merged as is', 'COMPLETE']);
+
+  // The next task archives the first; the first can still be labelled by id, and the label lands in its own log.
+  git(root, 'commit', '-qam', 'fix');
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'README.md', '--run', TEST_CMD, '--req', 'docs']);
+  const relabel = rdapq(root, ['outcome', 'revised', '--task', firstId, '--why', 'reviewer added a boundary test']);
+  assert.equal(relabel.code, 0, relabel.err);
+  const [stamp] = fs.readdirSync(path.join(root, '.rdapq', 'archive'));
+  const archived = fs.readFileSync(path.join(root, '.rdapq', 'archive', stamp, 'state.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  assert.deepEqual(archived.filter((e) => e.kind === 'outcome').map((e) => e.label), ['accepted', 'revised']);
+  assert.equal(readLog(root).filter((e) => e.kind === 'outcome').length, 0, 'the current task is untouched');
+  assert.equal(rdapq(root, ['outcome', 'rejected', '--task', 'T-19700101-dead']).code, 2);
+
+  const outFile = path.join(root, 'export.jsonl');
+  rdapq(root, ['export', '--out', outFile]);
+  const rows = fs.readFileSync(outFile, 'utf8').trim().split('\n').map(JSON.parse);
+  assert.deepEqual(rows.map((r) => [r.id === firstId, r.verdict, r.outcome]), [[true, 'COMPLETE', 'revised'], [false, null, null]], 'archived task first, then the current one');
+  assert.doesNotMatch(fs.readFileSync(outFile, 'utf8'), /boundary test|merged as is/, 'the why never leaves the repository');
+  assert.equal(JSON.parse(rdapq(root, ['protocol', '--json']).out).outcomes.accepted, 'shipped as the gate measured it');
+  assert.match(rdapq(root, ['protocol']).out, /outcome, set by the reviewer after the gate: accepted \(.*\); revised \(.*\); rejected \(discarded\)/);
+});

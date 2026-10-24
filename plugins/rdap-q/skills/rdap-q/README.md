@@ -11,7 +11,7 @@ RDAP-Q is an evidence-first protocol for AI coding agents. The model plans the c
 ```text
 rdap-q-skill/
 ├── SKILL.md            # the protocol, loaded on every /rdapq run (~1.5k tokens)
-├── tool/rdapq.js       # the engine: start, plan, req, cover, check, gate, claim, note, state, memory, export, protocol, hook-stop
+├── tool/rdapq.js       # the engine: start, plan, req, cover, check, gate, claim, note, state, outcome, memory, export, protocol, hook-stop
 ├── playbooks/
 │   ├── discover.md     # full depth, before start
 │   ├── audit.md        # full depth or /rdapq audit, before reporting
@@ -23,7 +23,7 @@ rdap-q-skill/
 
 ```text
 <repo>/.rdapq/oracles.json      # what "done" means: risk, task, requirements, files, commands
-<repo>/.rdapq/state.jsonl       # append-only task log: start, plan, req, cover, check, gate, claim, note, stop
+<repo>/.rdapq/state.jsonl       # append-only task log: start, plan, req, cover, check, gate, claim, note, stop, outcome
 <repo>/.rdapq/rounds/<n>.patch  # the exact diff each check round measured
 <repo>/.rdapq/archive/<time>/   # the previous task, moved whole by the next start
 <repo>/.rdapq/depth             # optional default depth for this repo ("full")

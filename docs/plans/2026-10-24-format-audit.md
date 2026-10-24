@@ -29,7 +29,7 @@
 | JSON | 6 | 10 | All program-read files were right. The root `manifest.json` had no reader and is deleted. The skill manifest turned out to have no reader either (no harness format looks for one; follow-up PR deletes it), and the check keeps both deleted. |
 | Plain text | 9 | 10 | Already only where a tool wants it. `goosehints` is now generated with the other bridges. |
 | Human docs (README, CHANGELOG, this folder) | 6 | 8 | Tables and one graph used well; numbers drift-checked. The four overlapping install sections became one task × source table (follow-up PR, README 37 KB → 33 KB). The oracle rows, risk row, terminal states, versions, and harness paths are checked; the rest of its shape is not, so 8. |
-| Task record for ML (`.rdapq/`) | 4 | 8 | Was oracle results and file names. Now task text, requirements and covers, per-round patch, timings, verdicts, refused stops, whole-task archive. No outcome label after the fact, so 8. |
+| Task record for ML (`.rdapq/`) | 4 | 9 | Was oracle results and file names. Now task text, requirements and covers, per-round patch, timings, verdicts, refused stops, whole-task archive, and (follow-up PR) the reviewer's `outcome` label beside the gate's verdict, exported for every task. Tests pin the shape; nothing makes a reviewer label, so 9. |
 
 ## What keeps the 10s at 10
 
@@ -40,4 +40,4 @@
 - README: done in a follow-up PR. One Install section: a task × source table, the per-harness table, and notes that state each fact once.
 - JSON: done in a follow-up PR. No harness reads a skill manifest (Agent Skills, Codex, Cursor, Copilot, Claude Code, Cline, Goose, Grok, and Hermes all load `SKILL.md` and the files it names), so `rdap-q-skill/manifest.json` is deleted rather than trimmed.
 - Mermaid (9): a `state --mmd` render of an archived task for human review would be the next relationship worth drawing, generated from the JSONL.
-- Task record (8): an outcome label (accepted, reverted, bug reported) recorded after the fact, by command or from later git history.
+- Task record: done in a follow-up PR (`outcome accepted|revised|rejected`). Was: an outcome label (accepted, reverted, bug reported) recorded after the fact, by command or from later git history.

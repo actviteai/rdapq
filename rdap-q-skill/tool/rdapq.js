@@ -54,6 +54,13 @@ const TASK_CAP = 500;
 const REQ_CAP = 200;
 const PATCH_CAP = 512 * 1024;
 const NOTE_TYPES = ['assumption', 'decision', 'risk', 'blocker', 'question'];
+// What happened to the work after the gate, set by the reviewer or CI, never by
+// the agent: the gate's verdict is the prediction, the outcome is the truth.
+const OUTCOMES = {
+  accepted: 'shipped as the gate measured it',
+  revised: 'shipped after changes the gate did not ask for',
+  rejected: 'discarded',
+};
 const GENERATED = /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|poetry\.lock|go\.sum)$|(^|\/)(dist|build|coverage)\//;
 const TEST_FILE = /(^|\/)(test|tests|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)test_[^/]*\.py$|_test\.(py|go)$/;
 const FIXTURE = /(^|\/)(fixtures?|__fixtures__|__snapshots__|testdata)\//;
@@ -119,7 +126,7 @@ function samePath(a, b) {
 }
 
 // Commands that keep their state in <repo>/.rdapq/.
-const TASK_COMMANDS = new Set(['start', 'plan', 'req', 'cover', 'check', 'gate', 'claim', 'note', 'state']);
+const TASK_COMMANDS = new Set(['start', 'plan', 'req', 'cover', 'check', 'gate', 'claim', 'note', 'state', 'outcome']);
 
 /**
  * Run from the home directory, <repo>/.rdapq/ would be $RDAPQ_HOME itself
@@ -148,7 +155,10 @@ function readJson(file) {
 
 /** A torn line from an interrupted write is skipped, never fatal. */
 function readLog(root) {
-  const { log } = taskPaths(root);
+  return readLogFile(taskPaths(root).log);
+}
+
+function readLogFile(log) {
   if (!fs.existsSync(log)) return [];
   const events = [];
   for (const line of fs.readFileSync(log, 'utf8').split('\n')) {
@@ -168,6 +178,17 @@ function append(root, event) {
   const line = { t: new Date().toISOString(), ...event };
   fs.appendFileSync(log, `${JSON.stringify(line)}\n`);
   return line;
+}
+
+/** Every task record in a repository: the current one, then the archive, oldest first. */
+function taskDirs(root) {
+  const { dir, archive } = taskPaths(root);
+  const dirs = [];
+  if (fs.existsSync(archive)) {
+    for (const stamp of fs.readdirSync(archive).sort()) dirs.push(path.join(archive, stamp));
+  }
+  dirs.push(dir);
+  return dirs.filter((d) => fs.existsSync(path.join(d, 'oracles.json')));
 }
 
 function list(value) {
@@ -758,6 +779,31 @@ function cmdNote(root, argv, out) {
   return 0;
 }
 
+/**
+ * `outcome accepted|revised|rejected [--why "<text>"] [--task <id>]`: what
+ * happened to the work after the gate. For the reviewer or CI, after the fact;
+ * SKILL.md never mentions it, so the agent does not label its own work. The
+ * label is appended to the task's own log, current or archived, and `export`
+ * carries it beside the verdict.
+ */
+function cmdOutcome(root, argv, out) {
+  const f = parseFlags(argv, []);
+  const [label] = f._;
+  if (!OUTCOMES[label]) throw new UsageError(`outcome needs a label: ${Object.keys(OUTCOMES).join('|')}`);
+  const why = typeof f.why === 'string' ? f.why.trim().slice(0, 400) : '';
+  if (SECRET.test(why)) throw new UsageError('refusing to log something that looks like a secret');
+  const wanted = typeof f.task === 'string' ? f.task : null;
+  const dirs = taskDirs(root);
+  const dir = wanted ? dirs.find((d) => (readJson(path.join(d, 'oracles.json')) || {}).id === wanted) : dirs[dirs.length - 1];
+  if (!dir) throw new UsageError(wanted ? `no task ${wanted} in this repository (current or archived)` : 'no RDAP-Q task in this repository');
+  const spec = readJson(path.join(dir, 'oracles.json'));
+  const gate = readLogFile(path.join(dir, 'state.jsonl')).filter((e) => e.kind === 'gate').pop();
+  const line = { t: new Date().toISOString(), kind: 'outcome', label, why, verdict: gate ? gate.verdict : null };
+  fs.appendFileSync(path.join(dir, 'state.jsonl'), `${JSON.stringify(line)}\n`);
+  out(`${spec.id || 'task'}: outcome ${label} (${OUTCOMES[label]}); gate said ${line.verdict || 'nothing'}`);
+  return 0;
+}
+
 function cmdState(root, argv, out) {
   const f = parseFlags(argv);
   const spec = readJson(taskPaths(root).oracles);
@@ -786,6 +832,8 @@ function cmdState(root, argv, out) {
   for (const n of notes) out(`  ${n.type}: ${n.text}`);
   const gate = decide(root);
   out(`gate now: ${gate.verdict}`);
+  const outcome = log.filter((e) => e.kind === 'outcome').pop();
+  if (outcome) out(`outcome: ${outcome.label}${outcome.why ? ` (${outcome.why})` : ''}`);
   return 0;
 }
 
@@ -809,6 +857,10 @@ function stateJson(root, spec) {
     lastCheck: last ? { round: last.round, Q: last.Q, band: qBand(last.Q), t: last.t, oracles: last.oracles, failures: last.failures, changed: last.changed, diff: last.diff || null } : null,
     notes: log.filter((e) => e.kind === 'note').slice(-5).map((n) => ({ type: n.type, text: n.text, t: n.t })),
     gate: decide(root),
+    outcome: (() => {
+      const o = log.filter((e) => e.kind === 'outcome').pop();
+      return o ? { label: o.label, why: o.why, t: o.t } : null;
+    })(),
   };
 }
 
@@ -969,19 +1021,24 @@ function markMemory(home, root, id, status, by) {
 
 // ---------------------------------------------------------------- export and hook
 
-/** One anonymized row per task: measurements only, no text, paths, or code. */
+/**
+ * One anonymized row per task, current and archived: measurements only, no
+ * text, paths, or code. `verdict` is what the gate said; `outcome` is what the
+ * reviewer said afterwards, so a row carries both prediction and truth.
+ */
 function cmdExport(root, argv, out) {
   const f = parseFlags(argv, ['repo']);
   const target = typeof f.out === 'string' ? path.resolve(f.out) : null;
-  if (!target) throw new UsageError('export needs --out <file.jsonl>; it appends one anonymized row per repository');
+  if (!target) throw new UsageError('export needs --out <file.jsonl>; it appends one anonymized row per task');
   const repos = (f.repo || [root]).map((r) => repoRoot(path.resolve(String(r))));
   let rows = 0;
-  for (const repo of repos) {
-    const spec = readJson(taskPaths(repo).oracles);
+  for (const repo of repos) for (const dir of taskDirs(repo)) {
+    const spec = readJson(path.join(dir, 'oracles.json'));
     if (!spec) continue;
-    const log = readLog(repo);
+    const log = readLogFile(path.join(dir, 'state.jsonl'));
     const checks = log.filter((e) => e.kind === 'check');
     const gate = log.filter((e) => e.kind === 'gate').pop();
+    const outcome = log.filter((e) => e.kind === 'outcome').pop();
     const count = (kind) => log.filter((e) => e.kind === kind).length;
     const row = {
       repo: crypto.createHash('sha256').update(repo).digest('hex').slice(0, 12),
@@ -1010,6 +1067,7 @@ function cmdExport(root, argv, out) {
       notes: count('note'),
       stops: count('stop'),
       verdict: gate ? gate.verdict : null,
+      outcome: outcome ? outcome.label : null,
     };
     fs.mkdirSync(path.dirname(target), { recursive: true });
     fs.appendFileSync(target, `${JSON.stringify(row)}\n`);
@@ -1072,6 +1130,7 @@ function protocol() {
     maxRounds: MAX_ROUNDS,
     terminal: TERMINAL,
     notes: NOTE_TYPES,
+    outcomes: OUTCOMES,
     memory: { classes: MEMORY_CLASSES, status: MEMORY_STATUS, caps: MEMORY_CAPS },
   };
 }
@@ -1089,6 +1148,7 @@ function cmdProtocol(root, argv, out) {
   out(`Q, the weighted mean, 0-10: ${SCALES.Q.map(([x, name, meaning]) => `${floor(x)} ${name} (${meaning})`).join('; ')}`);
   out(`memory confidence, 0-10: ${Object.entries(SCALES.confidence).sort((a, b) => b[0] - a[0]).map(([k, v]) => `${k} ${v}`).join('; ')}`);
   out(`rounds: ${MAX_ROUNDS}; terminal states: ${TERMINAL.join(', ')}`);
+  out(`outcome, set by the reviewer after the gate: ${Object.entries(OUTCOMES).map(([k, v]) => `${k} (${v})`).join('; ')}`);
   return 0;
 }
 
@@ -1105,6 +1165,8 @@ const HELP = `RDAP-Q engine
   claim "<text>" [--external] [--source s] [--verified] [--off-path]
   note assumption|decision|risk|blocker|question "<text>"
   state [--json]            task summary (--json: machine-readable, read-only)
+  outcome accepted|revised|rejected [--why "<text>"] [--task <id>]
+                            what happened after the gate; for the reviewer or CI, not the agent
   memory add --class C --fact F --evidence E [--scope project|global] [--tags a,b] [--supersedes id]
   memory search <terms...> | stale <id> [--status S] [--by id] | stats | compact
   export --out <file.jsonl> [--repo <dir>]...
@@ -1122,6 +1184,7 @@ const COMMANDS = {
   claim: cmdClaim,
   note: cmdNote,
   state: cmdState,
+  outcome: cmdOutcome,
   memory: cmdMemory,
   export: cmdExport,
   protocol: cmdProtocol,
@@ -1158,7 +1221,7 @@ function main(argv, options = {}) {
   }
 }
 
-module.exports = { main, decide, protocol, COMMANDS, REQUIRED, WEIGHTS, SCALES, TERMINAL, MAX_ROUNDS };
+module.exports = { main, decide, protocol, COMMANDS, REQUIRED, WEIGHTS, SCALES, TERMINAL, OUTCOMES, MAX_ROUNDS };
 
 if (require.main === module) {
   let stdin = '';
