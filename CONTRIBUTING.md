@@ -48,7 +48,7 @@ flowchart LR
 | `rdap-q-skill/` | `integrations/hermes/`, `plugins/rdap-q/skills/rdap-q/` | raw GitHub URLs and plugin installers do not follow symlinks |
 | `bridges/project.md` | `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `bridges/cline/rdapq.md`, `bridges/goose/goosehints`, `bridges/grok/rules.md`, `.github/copilot-instructions.md` | each harness reads its own file name |
 | `integrations/nemo/instructions.md` | the `system_prompt` block of `integrations/nemo/examples/workflow.yaml` | NeMo workflows are YAML |
-| engine constants (`protocol --json`) | tables and scale lines in `SKILL.md`, `README.md`; `terminal_states` in the skill manifest | readers need the numbers in prose |
+| engine constants (`protocol --json`) | tables and scale lines in `SKILL.md`, `README.md` | readers need the numbers in prose |
 | `eval/results/<run>/results.jsonl` | `report.md` beside it | humans read tables, programs read rows |
 
 ## Design review scale

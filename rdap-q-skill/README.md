@@ -16,7 +16,6 @@ rdap-q-skill/
 │   ├── discover.md     # full depth, before start
 │   ├── audit.md        # full depth or /rdapq audit, before reporting
 │   └── git.md          # only when asked to commit, push, or use a worktree
-├── manifest.json
 └── install/            # skill-local installers for Unix and Windows
 ```
 
