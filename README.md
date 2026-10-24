@@ -5,7 +5,7 @@
 [![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/actviteai/rdapq)
 [![npm](https://img.shields.io/npm/v/@actvite/rdapq.svg)](https://www.npmjs.com/package/@actvite/rdapq)
 
-Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. Framework: NVIDIA NeMo Agent Toolkit. See [Harness install](#in-harness-marketplace-installation).
+Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. Framework: NVIDIA NeMo Agent Toolkit. See [Install](#install).
 
 ---
 
@@ -47,10 +47,7 @@ The agent reads `SKILL.md` (about 1.5k tokens), plans the change, and then drive
 - [Description](#description)
 - [Overview](#overview)
 - [How it works](#system-architecture)
-- [Harness install](#in-harness-marketplace-installation)
-- [Install](#npm-npx-installation)
-- [Local clone](#universal-install-scripts)
-- [Update](#update)
+- [Install](#install)
 - [Weekly harness audit](#harness-audit)
 - [Commands](#canonical-commands)
 - [Oracles and gates](#oracles)
@@ -86,13 +83,42 @@ With `init --hook`, Claude Code also gets a Stop hook: while an RDAP-Q task's ga
 
 ---
 
-## <a id="in-harness-marketplace-installation"></a> Harness install
+## <a id="install"></a> Install
 
-This package is not in the Anthropic, xAI, or GitHub Copilot catalogs. Do not use `gh extension install`, a VS Code extension search, or `goose toolkit add`. Those commands do not install RDAP-Q.
+Node.js 22 or newer. Do not pipe the installer from the network (`curl | bash`, `irm | iex`): a piped script cannot see the skill tree and is refused. This GitHub tree is protocol 2.0.0 on `main` and is not on npm. [`@actvite/rdapq`](https://www.npmjs.com/package/@actvite/rdapq) has no release yet, and the legacy unscoped `rdap-q` (last release 1.4.0) is the 1.x protocol. <!-- keep-version -->
 
-`install --<harness>` writes that harness's user files. `init` writes the project files. A harness slash command is `/rdap-q` when the client loads `SKILL.md`. `/rdapq` works where a project bridge or Claude command file is present.
+`install` writes your user files for a harness. `init` writes a project's files. `status` shows what is installed. There is no `update` command: run the same install again. Pick a column, then run the rows you need. `$V` pins the npm version, so that `latest` cannot change under you:
 
-`npx --yes @actvite/rdapq` installs npm `latest` once the package has a release. To install **this** 2.0.0 tree, clone the repo or use the GitHub specifier below. The legacy `npx --yes @actvite/rdapq` still installs 1.4.0, the 1.x protocol. <!-- keep-version -->
+```bash
+V=$(npm view @actvite/rdapq version)
+```
+
+| Task | This tree (GitHub `main`) | Released npm package | Clone on disk |
+| :--- | :--- | :--- | :--- |
+| Install one harness | `npx --yes github:actviteai/rdapq install --claude` | `npx --yes @actvite/rdapq@$V install --claude` | `./install.sh --claude` or `.\install.ps1 -Claude` |
+| Install several | `npx --yes github:actviteai/rdapq install --codex --grok` | `npx --yes @actvite/rdapq@$V install --codex --grok` | `./install.sh --codex --grok` |
+| Install all nine chat harnesses | `npx --yes github:actviteai/rdapq install` (or `--all`) | `npx --yes @actvite/rdapq@$V install` | `./install.sh --all` or `.\install.ps1 -All` |
+| Core only, no harness files | `npx --yes github:actviteai/rdapq install --global-only` | `npx --yes @actvite/rdapq@$V install --global-only` | `./install.sh --global-only` |
+| NeMo Agent Toolkit | `npx --yes github:actviteai/rdapq install --nemo`, then the pip step it prints | not packaged | `./install.sh --nemo`, then `pip install "./integrations/nemo[agents]"` |
+| Initialize the current project | `npx --yes github:actviteai/rdapq init` (`--hook`, `--force`, `--repo <dir>`) | `npx --yes @actvite/rdapq@$V init` | `node bin/rdapq.js init` |
+| Check installation status | `npx --yes github:actviteai/rdapq status` | `npx --yes @actvite/rdapq@$V status` | `node bin/rdapq.js status` |
+| Update | the same install, same flags | the same install, newer `$V` | `git pull --ff-only origin main`, then the same install |
+| Replace a harness file you edited | add `--force` to the install or `init` | add `--force` | `--force` or `-Force` |
+| Install the `rdapq` command globally | `npm install -g github:actviteai/rdapq`, then `rdapq install --claude` | `npm install -g @actvite/rdapq@$V`, then `rdapq install --claude` | `npm install -g .`, then `rdapq install --claude` |
+
+What the rows mean:
+
+- **Harness flags.** `--cursor`, `--codex`, `--claude`, `--copilot`, `--grok`, `--antigravity`, `--goose`, `--cline`, `--hermes`, `--nemo`. No flag, or `--all`, installs the nine chat harnesses; NeMo is a framework and is only set up when you name it. Do not pass harness flags to `init`.
+- **Edited files are kept.** A harness file that differs from the packaged copy stays as it is, and the packaged copy is written beside it as `<file>.rdapq`. Diff that sidecar. `--force` saves yours as `<file>.rdapq-backup` and writes the new one. Skill trees are staged and renamed into place only after `SKILL.md` is present, so a failed update does not delete a working install.
+- **Update keeps** `$RDAPQ_HOME/memory/`, `$RDAPQ_HOME/projects/`, and a repository's `<repo>/.rdapq/`. `npm install` updates the CLI package only; run `rdapq install` again afterward. Start a new harness session after an update so it does not keep the previous `SKILL.md` in context. There is no `v2.0.0` tag; `git checkout v1.4.0` is the last tagged release. <!-- keep-version -->
+- **`--global-only`** writes `$RDAPQ_HOME` (default `~/.rdapq`): `skills/rdap-q/`, plus empty `memory/`, `projects/`, and `registry/`.
+- **Homes.** `RDAPQ_HOME`, `CURSOR_HOME`, `CLAUDE_HOME`, `COPILOT_HOME`, `GROK_HOME`, `GEMINI_HOME`, `CLINE_HOME`, `AGENTS_HOME`, and `HERMES_HOME` redirect the directories below without touching the real user profile. Hermes on Windows defaults to `%LOCALAPPDATA%\hermes`, as Hermes itself does.
+- **npm timing.** Right after a publish, `npm error notarget No matching version found` means `latest` is advertised before the tarball is queryable, or a stale cache. Wait until `npm view @actvite/rdapq version` prints the version you expect; `npm cache clean --force` if a cached packument still names the previous one.
+- **PowerShell.** `.\install.ps1` takes `-All`, one switch per harness, `-Force`, `-GlobalOnly`, `-Hook`, and `-Repo <dir>`. It has no status switch: use `node .\bin\rdapq.js status`.
+
+### <a id="harnesses"></a> What each harness gets
+
+This package is not in the Anthropic, xAI, or GitHub Copilot catalogs. `gh extension install`, a VS Code extension search, and the Goose `toolkit add` command do not install RDAP-Q. A harness slash command is `/rdap-q` when the client loads `SKILL.md`; `/rdapq` works where a project bridge or Claude command file is present.
 
 | Harness | User install | What it writes | Project install (`init`) | Invoke |
 | :--- | :--- | :--- | :--- | :--- |
@@ -107,16 +133,11 @@ This package is not in the Anthropic, xAI, or GitHub Copilot catalogs. Do not us
 | **Hermes Agent** | `--hermes` | `~/.hermes/skills/software-development/rdap-q/` | none; see below | `/rdap-q`, or when the request matches the skill's description |
 | **NeMo Agent Toolkit** (framework) | `--nemo` | the engine under `~/.rdapq/`; prints the `pip install` step, never runs it | none | `rdapq__*` tools in a workflow YAML; needs Node 22 on the host; see [below](#nvidia-nemo-agent-toolkit-framework-integration) |
 
-`CURSOR_HOME`, `CLAUDE_HOME`, `COPILOT_HOME`, `GROK_HOME`, `GEMINI_HOME`, `CLINE_HOME`, `AGENTS_HOME`, and `HERMES_HOME` override those directories. Hermes on Windows defaults to `%LOCALAPPDATA%\hermes`, as Hermes itself does.
+`init` writes every bridge in the table plus `.claude/commands/rdapq.md`, and the skill trees `.agents/skills/rdap-q/` (Cursor, Codex, Copilot, Antigravity, Goose) and `.claude/skills/rdap-q/` (Claude Code, Cline). User installs never add always-on global rules for harnesses that load skills on demand, so RDAP-Q stays out of sessions that do not invoke it. The one global bridge, the Claude command, points at the installed core under `$RDAPQ_HOME`. Earlier releases wrote `~/.codex/AGENTS.md`, `~/.copilot/copilot-instructions.md`, `~/.cline/rules/rdapq.md`, and `~/.config/goose/.goosehints`; the installer never deletes your files, so remove those by hand if they only contain the RDAP-Q bridge.
 
-**Hermes Agent notes.** Hermes skills are user-wide, so `--hermes` writes only the skill tree, with a Hermes frontmatter (`description` that opens with the trigger sentence, `platforms`, `metadata.hermes.tags`, and `requires_toolsets: [terminal]` because the engine runs through the terminal tool). The body names the engine as `${HERMES_SKILL_DIR}/tool/rdapq.js`, which Hermes expands to the installed path. Hermes registers the skill as `/rdap-q`. To type `/rdapq` as in other harnesses, add an alias once:
+**Claude Code marketplace.** Optional, and not needed for `install --claude` or `init`: `.claude-plugin/marketplace.json` lets a session run `/plugin marketplace add actviteai/rdapq` and then `/plugin install rdap-q@rdapq`.
 
-```bash
-hermes config set quick_commands.rdapq.type alias
-hermes config set quick_commands.rdapq.target /rdap-q
-```
-
-Hermes can also install the skill straight from this repository, without Node.js for the installer (the engine still needs Node 22 to run):
+**Hermes Agent.** Hermes skills are user-wide, so `--hermes` writes only the skill tree, with a Hermes frontmatter (`description` that opens with the trigger sentence, `platforms`, `metadata.hermes.tags`, and `requires_toolsets: [terminal]` because the engine runs through the terminal tool). The body names the engine as `${HERMES_SKILL_DIR}/tool/rdapq.js`, which Hermes expands to the installed path. Hermes registers the skill as `/rdap-q`; alias `/rdapq` once with `hermes config set quick_commands.rdapq.type alias` and `hermes config set quick_commands.rdapq.target /rdap-q`. `init` writes no Hermes file: Hermes already reads a repository's `AGENTS.md` and, after `hermes skills trust`, its `.agents/skills/rdap-q/`. For a Hermes profile, set `HERMES_HOME=~/.hermes/profiles/<name>` before the install. Hermes can also install the skill straight from this repository, without Node.js for the installer (the engine still needs Node 22 to run):
 
 ```bash
 hermes skills install https://raw.githubusercontent.com/actviteai/rdapq/main/integrations/hermes/SKILL.md --category software-development
@@ -124,33 +145,9 @@ hermes skills install https://raw.githubusercontent.com/actviteai/rdapq/main/int
 
 That copy is `integrations/hermes/`: the same SKILL.md body with the engine at `scripts/rdapq.js` and the playbooks under `references/`, because a URL install copies only files SKILL.md names under those directories. It is generated from `rdap-q-skill/` by `npm run sync`, and `npm test` fails if it drifts. Hermes installs it with `community` trust after its security scan; `hermes skills update rdap-q` re-fetches it.
 
-`init` writes no Hermes file. Hermes already reads a repository's `AGENTS.md` (which `init` writes) and, after `hermes skills trust`, the repo's `.agents/skills/rdap-q/`. For a Hermes profile, point `HERMES_HOME` at it: `HERMES_HOME=~/.hermes/profiles/<name> npx --yes github:actviteai/rdapq install --hermes`.
+### <a id="nvidia-nemo-agent-toolkit-framework-integration"></a> NeMo Agent Toolkit
 
-User installs never add always-on global rules for harnesses that load skills on demand, so RDAP-Q stays out of sessions that do not invoke it. The one global bridge, the Claude command, points at the installed core under `$RDAPQ_HOME`. Earlier releases wrote `~/.codex/AGENTS.md`, `~/.copilot/copilot-instructions.md`, `~/.cline/rules/rdapq.md`, and `~/.config/goose/.goosehints`; the installer never deletes your files, so remove those by hand if they only contain the RDAP-Q bridge.
-
-```bash
-# This GitHub tree (2.0.0, not on npm):
-npx --yes github:actviteai/rdapq install --cursor
-npx --yes github:actviteai/rdapq install --codex --claude
-npx --yes github:actviteai/rdapq install --hermes
-npx --yes github:actviteai/rdapq init
-
-# Released npm package (after the first @actvite/rdapq release; pin it):
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --cursor
-```
-
-Claude Code can also add this repository as a plugin marketplace from inside a session, because `.claude-plugin/marketplace.json` is in the repo:
-
-```text
-/plugin marketplace add actviteai/rdapq
-/plugin install rdap-q@rdapq
-```
-
-That is optional. It is not required for `install --claude` or `init`.
-
-### NVIDIA NeMo Agent Toolkit (framework integration)
-
-NeMo Agent Toolkit (`nvidia-nat`, CLI `nat`) is a Python framework, not a chat harness. It has no skills directory and no slash commands: agents are YAML workflows that call Python tools. RDAP-Q ships for it as `rdapq-nat`, a pip package in [`integrations/nemo/`](integrations/nemo/) that registers the engine's commands as one tool group (`rdapq__start`, `__plan`, `__check`, `__gate`, `__claim`, `__note`, `__state`). The tools run the same `rdapq.js`, so the verdict still comes from the engine, not the model.
+NeMo Agent Toolkit (`nvidia-nat`, CLI `nat`) is a Python framework, not a chat harness: agents are YAML workflows that call Python tools. RDAP-Q ships for it as `rdapq-nat`, a pip package in [`integrations/nemo/`](integrations/nemo/) that registers the engine's commands as one tool group (`rdapq__start`, `__plan`, `__req`, `__cover`, `__check`, `__gate`, `__claim`, `__note`, `__state`). The tools run the same `rdapq.js`, so the verdict still comes from the engine, not the model.
 
 ```bash
 npx --yes github:actviteai/rdapq install --nemo     # installs the engine under ~/.rdapq and prints the steps below
@@ -159,192 +156,7 @@ pip install "./rdapq/integrations/nemo[agents]"     # into the environment that 
 nat run --config_file rdapq/integrations/nemo/examples/workflow.yaml --input "<task>"
 ```
 
-Caveats:
-
-- The host needs **Node.js 22 or newer**, because the tools run the Node engine. Python 3.11 to 3.13 and NeMo Agent Toolkit 1.8 or newer (CI tests 1.8 and the latest release).
-- `install --nemo` never runs pip. It installs the engine and prints the commands, because pip-installing into an environment you did not choose breaks PEP 668 systems. `--all` leaves NeMo out; name it.
-- RDAP-Q only measures. A NeMo agent also needs tools that read and edit files and run commands, from your own workflow.
-- `rdapq-nat` is not on PyPI yet, and NeMo has no catalog to list it in; install it from a clone.
-
-See [`integrations/nemo/README.md`](integrations/nemo/README.md) for the tools and settings, and [`integrations/nemo/NOTES.md`](integrations/nemo/NOTES.md) for the toolkit API it relies on.
-
----
-
-## <a id="npm-npx-installation"></a> Install
-
-Node.js 22 or newer is required. Do not pipe an installer from the network (`curl | bash`, `irm | iex`). A piped script cannot see the skill tree and is refused.
-
-`SKILL.md` is the instruction source the agent loads. This README is the human guide.
-
-With no harness flag, `install` configures all nine chat harnesses. Name a harness to leave the others alone. NeMo Agent Toolkit is only set up when you pass `--nemo`. `init` and `install` are separate commands. Do not pass harness flags to `init`.
-
-Edited harness files are kept. Pass `--force` to replace one. The previous file is saved as `<file>.rdapq-backup`. A file that is kept also gets the new copy beside it as `<file>.rdapq`. Skill trees are copied to a staging directory and renamed into place only after `SKILL.md` is present, so a failed update does not delete a working install.
-
-### This tree (2.0.0, GitHub `main`, not on npm)
-
-```bash
-git clone https://github.com/actviteai/rdapq.git
-cd rdapq
-./install.sh --claude
-
-# or, without cloning first:
-npx --yes github:actviteai/rdapq install --claude
-npx --yes github:actviteai/rdapq install --cursor
-npx --yes github:actviteai/rdapq install --codex --grok
-npx --yes github:actviteai/rdapq install --all
-npx --yes github:actviteai/rdapq install --global-only
-```
-
-### Released npm package
-
-[`@actvite/rdapq`](https://www.npmjs.com/package/@actvite/rdapq) on the public registry. It has no release yet; until it does, use this GitHub tree. Pin the version once it is published. The legacy unscoped `rdap-q` (last release 1.4.0, the 1.x protocol) is no longer updated. <!-- keep-version -->
-
-```bash
-# Pin npm latest.
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --claude
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --cursor
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --codex --grok
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --all
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --global-only
-```
-
-Right after a publish, npm may advertise `latest` before the tarball is queryable. `npm error notarget No matching version found for @actvite/rdapq@x.y.z` is that window, or a stale local cache. Wait until `npm view @actvite/rdapq version` prints the version you expect, then pin as above. `npm cache clean --force` if a cached packument still names the previous latest.
-
-`--global-only` writes `$RDAPQ_HOME` (default `~/.rdapq`): `skills/rdap-q/`, plus empty `memory/`, `projects/`, and `registry/` directories. It does not create harness bridges.
-
-### Initialize the current project:
-```bash
-# This tree:
-npx --yes github:actviteai/rdapq init
-npx --yes github:actviteai/rdapq init --hook
-npx --yes github:actviteai/rdapq init --force
-npx --yes github:actviteai/rdapq init --repo /path/to/my-project
-
-# Released npm package:
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) init
-```
-
-`init` writes `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `.clinerules/rdapq.md`, `.goosehints`, `.grok/rules.md`, `.github/copilot-instructions.md`, `.claude/commands/rdapq.md`, and skill trees at `.agents/skills/rdap-q/` and `.claude/skills/rdap-q/`. Cursor, Codex, Copilot, Antigravity, and Goose read `.agents/skills`. Claude Code and Cline read `.claude/skills`.
-
-### Check installation status:
-```bash
-npx --yes github:actviteai/rdapq status
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) status
-```
-
-### Install the command globally:
-```bash
-# Released npm package:
-npm install -g @actvite/rdapq@$(npm view @actvite/rdapq version)
-rdapq install --claude
-rdapq status
-rdapq init
-
-# This tree, from a clone:
-npm install -g .
-rdapq install --claude
-```
-
-Harness homes can be redirected without touching the real user profile. `RDAPQ_HOME`, `GEMINI_HOME`, `CLAUDE_HOME`, `CLINE_HOME`, `GROK_HOME`, `COPILOT_HOME`, `CURSOR_HOME`, `AGENTS_HOME`, and `HERMES_HOME` are all honored.
-
-`npx --yes github:actviteai/rdapq` always installs this GitHub tree. `npx --yes @actvite/rdapq` installs whatever npm currently tags `latest`.
-
----
-
-## <a id="universal-install-scripts"></a> Local clone
-
-Do not pipe the installer from the network. A piped script cannot see this repository and is refused on purpose.
-
-### Linux / macOS / WSL:
-```bash
-git clone https://github.com/actviteai/rdapq.git
-cd rdapq
-./install.sh --all          # every harness
-./install.sh --claude       # one harness
-./install.sh --cursor       # Cursor skill only
-npm test                    # installer, packaging, and version checks
-```
-
-### Windows (PowerShell):
-```powershell
-git clone https://github.com/actviteai/rdapq.git
-cd rdapq
-.\install.ps1 -All
-.\install.ps1 -Claude -Force
-```
-
-`install.sh` and `install.ps1` are wrappers around `node bin/rdapq.js`. With no harness flag they install all nine. `.\install.ps1` has no `status` switch. Use `node .\bin\rdapq.js status`.
-
----
-
-## <a id="update"></a> Update
-
-There is no `update` command. Install the same flags again. A newer skill tree is staged and swapped in only after its `SKILL.md` verifies. The previous tree is removed only after that rename. If the copy fails, the previous tree is put back.
-
-These are not inside the skill tree and are kept:
-
-- `$RDAPQ_HOME/memory/`
-- `$RDAPQ_HOME/projects/`
-- repository task files in `<repo>/.rdapq/` (`oracles.json`, `state.jsonl`)
-- a harness file you have edited, unless you pass `--force`
-
-`npm install` updates the CLI package only. It does not refresh `~/.rdapq` or the harness files. Run `rdapq install` again after the package is newer.
-
-### This tree (GitHub `main`)
-```bash
-npx --yes github:actviteai/rdapq install --cursor
-npx --yes github:actviteai/rdapq status
-```
-
-Use the same harness flags you used the first time. `--cursor` above is only an example.
-
-From a clone already on disk:
-
-```bash
-cd rdapq
-git pull --ff-only origin main
-./install.sh --claude
-node ./bin/rdapq.js status
-```
-
-```powershell
-cd rdapq
-git pull --ff-only origin main
-.\install.ps1 -Claude
-node .\bin\rdapq.js status
-```
-
-There is no `v2.0.0` tag. `git checkout v1.4.0` is the last tagged release. <!-- keep-version -->
-
-### Released npm package
-```bash
-# Pin the version.
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) install --cursor
-npx --yes @actvite/rdapq@$(npm view @actvite/rdapq version) status
-```
-
-### Command installed globally
-```bash
-npm install -g @actvite/rdapq@$(npm view @actvite/rdapq version)
-rdapq install --cursor
-rdapq status
-```
-
-### Take the new harness text
-A re-install that sees a different `AGENTS.md`, `CLAUDE.md`, or other bridge leaves your file in place and writes the packaged copy next to it as `<file>.rdapq`. Diff that sidecar. When you want the packaged text:
-
-```bash
-npx --yes github:actviteai/rdapq install --claude --force
-```
-
-`--force` copies the current file to `<file>.rdapq-backup`, then writes the new one. It does not delete `$RDAPQ_HOME/memory`.
-
-### Workspace already initialized
-```bash
-npx --yes github:actviteai/rdapq init
-```
-
-That refreshes `.agents/skills/rdap-q/` and creates any bridge that is missing. Add `--force` only when you want the bridges replaced. Start a new harness session afterward so it does not keep the previous `SKILL.md` in context.
+The host needs Node.js 22 or newer, Python 3.11 to 3.13, and NeMo Agent Toolkit 1.8 or newer (CI tests 1.8 and the latest release). `install --nemo` never runs pip, because pip-installing into an environment you did not choose breaks PEP 668 systems. RDAP-Q only measures: a NeMo agent also needs tools that read and edit files and run commands, from your own workflow. `rdapq-nat` is not on PyPI yet; install it from a clone. See [`integrations/nemo/README.md`](integrations/nemo/README.md) for the tools and settings, and [`integrations/nemo/NOTES.md`](integrations/nemo/NOTES.md) for the toolkit API it relies on.
 
 ---
 
