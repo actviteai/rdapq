@@ -142,6 +142,49 @@ for (const [rel, prefix] of [['manifest.json', ''], ['rdap-q-skill/manifest.json
   }
 }
 
+// Text the model reads has one form per content type (CONTRIBUTING.md):
+// prose for rules, Markdown tables for shaped facts, Mermaid only for
+// relationships, numbers rendered from the engine, JSON only for programs.
+// This enforces what a script can decide about that.
+{
+  const MODEL_FACING = [
+    'rdap-q-skill/SKILL.md',
+    ...fs.readdirSync(path.join(ROOT, 'rdap-q-skill', 'playbooks')).map((f) => `rdap-q-skill/playbooks/${f}`),
+    'integrations/nemo/instructions.md',
+    'AGENTS.md', 'CLAUDE.md', 'GEMINI.md',
+    'bridges/cline/rdapq.md', 'bridges/goose/goosehints', 'bridges/grok/rules.md', 'bridges/claude/commands/rdapq.md',
+    '.github/copilot-instructions.md',
+  ];
+  const DIAGRAMS = /^\s*(stateDiagram(-v2)?|flowchart|graph|sequenceDiagram)\b/;
+  for (const rel of MODEL_FACING) {
+    const lines = read(rel).split('\n');
+    let fence = null; // language of the open fenced block
+    let table = null; // { start, separator } of the open Markdown table
+    lines.forEach((line, i) => {
+      const n = i + 1;
+      const open = /^\s*```\s*(\S*)/.exec(line);
+      if (open) {
+        if (fence === null) {
+          fence = open[1].toLowerCase();
+          if (['json', 'yaml', 'yml'].includes(fence)) failures.push(`${rel}:${n}: a ${fence} block; the model reads prose and tables, programs read JSON`);
+          if (fence === 'mermaid' && !DIAGRAMS.test(lines[i + 1] || '')) failures.push(`${rel}:${n}: Mermaid is for relationships only (stateDiagram, flowchart, graph, sequenceDiagram)`);
+        } else fence = null;
+        return;
+      }
+      if (fence !== null) return;
+      if (/^\s*[[{]\s*"/.test(line)) failures.push(`${rel}:${n}: a raw JSON line in text the model reads`);
+      if (/^\s*\|/.test(line)) {
+        if (!table) table = { start: n, separator: false };
+        if (/^\s*\|\s*:?-{3,}/.test(line)) table.separator = true;
+      } else if (table) {
+        if (!table.separator) failures.push(`${rel}:${table.start}: a Markdown table without a header separator row`);
+        table = null;
+      }
+    });
+    if (table && !table.separator) failures.push(`${rel}:${table.start}: a Markdown table without a header separator row`);
+  }
+}
+
 // The protocol is a token budget: SKILL.md is loaded on every /rdapq run.
 const skill = read('rdap-q-skill/SKILL.md');
 if (Buffer.byteLength(skill) > 6144) failures.push(`rdap-q-skill/SKILL.md is ${Buffer.byteLength(skill)} bytes; keep it under 6144 (about 1.5k tokens)`);
