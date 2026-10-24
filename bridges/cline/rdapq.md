@@ -1,4 +1,4 @@
-# RDAP-Q 2.0.0
+# RDAP-Q 2.1.0
 
 When the user types `/rdapq` or `/rdap-q`, read the RDAP-Q skill before doing anything else, then follow it for that task only. Do not use RDAP-Q for other requests.
 

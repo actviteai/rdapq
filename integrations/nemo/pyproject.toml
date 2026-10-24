@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rdapq-nat"
-version = "2.0.0"
+version = "2.1.0"
 description = "RDAP-Q for NVIDIA NeMo Agent Toolkit: a bundled engine runs the checks and names the verdict, so the agent never grades its own work."
 readme = "README.md"
 license = "GPL-3.0-or-later"

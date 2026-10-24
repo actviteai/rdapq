@@ -1,8 +1,10 @@
 # Changelog
 
-Changes on `main` that are not in a release yet. npm `latest` is 1.4.0; this tree is 2.0.0 and unreleased (see the README). <!-- keep-version -->
+npm `latest` is 1.4.0 until 2.1.0 is published (see the README). <!-- keep-version -->
 
-## Unreleased
+## 2.1.0 (2026-10-24)
+
+Tagged `v2.1.0` and staged for the first `@actvite/rdapq` release. The first 2.x tag: 2.0.0 was never tagged, because its eval ship gate did not pass. The 2.0 protocol (engine, oracles, task log, memory) and everything below ship together here.
 
 ### Added
 

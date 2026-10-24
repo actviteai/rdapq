@@ -1,6 +1,6 @@
 {
   "name": "rdap-q",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Evidence-first engineering protocol for AI coding agents. A bundled tool runs the checks and names the result, so the model never grades its own work.",
   "skills": [
     "rdap-q-skill"

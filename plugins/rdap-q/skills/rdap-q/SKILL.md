@@ -3,7 +3,7 @@ name: rdap-q
 description: Run the RDAP-Q evidence-first engineering protocol. Invoke with /rdap-q or /rdapq. A tool measures whether the task is done; the model does not grade itself.
 disable-model-invocation: true
 ---
-# RDAP-Q 2.0.0
+# RDAP-Q 2.1.0
 
 RDAP-Q makes "done" something a tool measures, not something you claim. You plan the change, `tool/rdapq.js` runs the checks, and its verdict names the result. Follow this for the current task only.
 
