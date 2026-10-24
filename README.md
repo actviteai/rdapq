@@ -478,9 +478,9 @@ The roadmap's ship gate for 2.0 was a lower false-COMPLETE rate at equal or lowe
 
 ```text
 rdapq/
-├── AGENTS.md, CLAUDE.md, GEMINI.md   # harness bridges
-├── .github/copilot-instructions.md   # Copilot bridge
-├── bridges/                      # copied into projects by init: claude, grok, cline, goose
+├── AGENTS.md, CLAUDE.md, GEMINI.md   # harness bridges (generated from bridges/project.md: npm run sync)
+├── .github/copilot-instructions.md   # Copilot bridge (generated)
+├── bridges/                      # project.md is the source; claude/, grok/, cline/, goose/ are copied into projects by init
 ├── bin/rdapq.js                  # CLI: install, init, status, and task commands
 ├── lib/installer.js              # installer implementation
 ├── lib/hermes.js                 # Hermes Agent frontmatter render and checks
@@ -491,12 +491,12 @@ rdapq/
 ├── scripts/                      # version stamping, static checks, harness audit
 ├── test/                         # node:test suites
 ├── .claude-plugin/, plugins/rdap-q/  # plugin marketplace (Claude Code, Codex, Copilot, Grok); the skill copy is generated: npm run sync
-├── manifest.json, package.json
+├── package.json
 └── rdap-q-skill/                 # the skill that gets installed
     ├── SKILL.md                  # the protocol (loaded on every /rdapq run)
     ├── tool/rdapq.js             # the engine: start, req, cover, check, gate, memory, export, protocol, hook
     ├── playbooks/                # discover.md and audit.md (full depth), git.md
-    ├── manifest.json
+    ├── manifest.json             # skill metadata; terminal_states is checked against the engine
     └── install/                  # skill-local installers
 ```
 

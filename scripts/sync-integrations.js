@@ -22,6 +22,13 @@
  *   Grok copy the plugin directory and drop a symlink that leaves it, so this
  *   is every file of rdap-q-skill/, byte for byte, executable bits included.
  *
+ * bridges/project.md -> AGENTS.md, CLAUDE.md, GEMINI.md, the Cline, Goose,
+ *   Grok, and Copilot bridges. Seven files that say the same thing, written once.
+ *
+ * integrations/nemo/instructions.md -> the system_prompt block of
+ *   integrations/nemo/examples/workflow.yaml. NeMo wants YAML; the prose is
+ *   written once and rendered into it.
+ *
  *   node scripts/sync-integrations.js          rewrite the copies
  *   node scripts/sync-integrations.js --check  exit 1 if a copy is stale
  */
@@ -29,6 +36,7 @@
 const fs = require('fs');
 const path = require('path');
 const hermes = require('../lib/hermes');
+const { BRIDGES, BRIDGE_TEMPLATE } = require('./version-targets');
 
 const ROOT = path.resolve(__dirname, '..');
 const OUT = 'integrations/hermes';
@@ -75,10 +83,33 @@ function pluginFiles(root = ROOT) {
   return files;
 }
 
+const WORKFLOW = 'integrations/nemo/examples/workflow.yaml';
+const INSTRUCTIONS = 'integrations/nemo/instructions.md';
+
+/** workflow.yaml with its system_prompt block rendered from instructions.md. */
+function renderWorkflow(root = ROOT) {
+  const yaml = fs.readFileSync(path.join(root, WORKFLOW), 'utf8');
+  const prose = fs.readFileSync(path.join(root, INSTRUCTIONS), 'utf8').replace(/\r\n/g, '\n').trimEnd();
+  const block = prose.split('\n').map((line) => (line ? `    ${line}` : '')).join('\n');
+  const match = /^( {2}system_prompt: \|\n)((?: {4}.*\n|\n)+)/m.exec(yaml);
+  if (!match) throw new Error(`${WORKFLOW}: no "  system_prompt: |" block to render instructions.md into`);
+  return `${yaml.slice(0, match.index)}${match[1]}${block}\n${yaml.slice(match.index + match[0].length)}`;
+}
+
+/** Files generated in place at the repository root: no directory is swept. */
+function rootFiles(root = ROOT) {
+  const files = new Map();
+  const bridge = fs.readFileSync(path.join(root, BRIDGE_TEMPLATE), 'utf8');
+  for (const rel of BRIDGES) files.set(rel, { text: bridge, exec: false });
+  files.set(WORKFLOW, { text: renderWorkflow(root), exec: false });
+  return files;
+}
+
 function targets(root = ROOT) {
   return [
     { out: OUT, why: 'raw GitHub URLs do not follow it', modes: false, files: new Map([...expected(root)].map(([rel, text]) => [rel, { text, exec: false }])) },
     { out: PLUGIN_OUT, why: 'Codex and Grok do not copy it', modes: true, files: pluginFiles(root) },
+    { out: '', why: 'they are rendered from one source', modes: false, sweep: false, files: rootFiles(root) },
   ];
 }
 
@@ -97,17 +128,19 @@ function drift(root = ROOT) {
   const problems = [];
   for (const target of targets(root)) {
     const dir = path.join(root, target.out);
-    if (isLink(dir)) {
+    if (target.out && isLink(dir)) {
       problems.push(`${target.out} is a symlink; ${target.why}`);
       continue;
     }
+    const name = (rel) => (target.out ? `${target.out}/${rel}` : rel);
     for (const [rel, want] of target.files) {
       const file = path.join(dir, rel);
-      if (!fs.existsSync(file)) problems.push(`${target.out}/${rel} is missing`);
-      else if (isLink(file)) problems.push(`${target.out}/${rel} is a symlink; ${target.why}`);
-      else if (lf(fs.readFileSync(file, 'utf8')) !== lf(want.text)) problems.push(`${target.out}/${rel} is stale`);
-      else if (target.modes && POSIX && isExec(file) !== want.exec) problems.push(`${target.out}/${rel} ${want.exec ? 'must' : 'must not'} be executable`);
+      if (!fs.existsSync(file)) problems.push(`${name(rel)} is missing`);
+      else if (isLink(file)) problems.push(`${name(rel)} is a symlink; ${target.why}`);
+      else if (lf(fs.readFileSync(file, 'utf8')) !== lf(want.text)) problems.push(`${name(rel)} is stale`);
+      else if (target.modes && POSIX && isExec(file) !== want.exec) problems.push(`${name(rel)} ${want.exec ? 'must' : 'must not'} be executable`);
     }
+    if (target.sweep === false) continue;
     for (const rel of listFiles(dir)) {
       if (!target.files.has(rel)) problems.push(`${target.out}/${rel} is not generated; remove it or add it to scripts/sync-integrations.js`);
     }
@@ -121,9 +154,11 @@ function write(root = ROOT) {
   for (const target of targets(root)) {
     const dir = path.join(root, target.out);
     // A symlinked copy is replaced by real files, never written through.
-    if (isLink(dir)) fs.unlinkSync(dir);
-    for (const rel of listFiles(dir)) {
-      if (!target.files.has(rel)) fs.rmSync(path.join(dir, rel), { recursive: true, force: true });
+    if (target.out && isLink(dir)) fs.unlinkSync(dir);
+    if (target.sweep !== false) {
+      for (const rel of listFiles(dir)) {
+        if (!target.files.has(rel)) fs.rmSync(path.join(dir, rel), { recursive: true, force: true });
+      }
     }
     for (const [rel, want] of target.files) {
       const file = path.join(dir, rel);
@@ -132,7 +167,7 @@ function write(root = ROOT) {
       if (!fs.existsSync(file) || fs.readFileSync(file, 'utf8') !== want.text) fs.writeFileSync(file, want.text);
       if (target.modes && POSIX) fs.chmodSync(file, want.exec ? 0o755 : 0o644);
     }
-    done.push({ out: target.out, count: target.files.size });
+    done.push({ out: target.out || '<root>', count: target.files.size });
   }
   return done;
 }
@@ -144,10 +179,10 @@ if (require.main === module) {
       process.stderr.write(`${problems.join('\n')}\nrun: node scripts/sync-integrations.js\n`);
       process.exit(1);
     }
-    for (const target of targets()) process.stdout.write(`${target.out} is up to date\n`);
+    for (const target of targets()) process.stdout.write(`${target.out || '<root>'} is up to date\n`);
   } else {
     for (const { out, count } of write()) process.stdout.write(`wrote ${count} file(s) to ${out}\n`);
   }
 }
 
-module.exports = { OUT, PLUGIN_OUT, drift, expected, pluginFiles, targets, write };
+module.exports = { OUT, PLUGIN_OUT, WORKFLOW, drift, expected, pluginFiles, renderWorkflow, rootFiles, targets, write };

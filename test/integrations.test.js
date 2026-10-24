@@ -11,6 +11,7 @@ const { PLUGIN_OUT, drift, expected, write } = require('../scripts/sync-integrat
 
 const REPO = path.resolve(__dirname, '..');
 const { version } = require('../package.json');
+const { BRIDGES } = require('../scripts/version-targets');
 
 /** A scratch copy of just what the generator reads and writes. */
 function scratch() {
@@ -19,6 +20,12 @@ function scratch() {
   fs.cpSync(path.join(REPO, 'integrations'), path.join(root, 'integrations'), { recursive: true });
   fs.cpSync(path.join(REPO, 'plugins'), path.join(root, 'plugins'), { recursive: true });
   fs.copyFileSync(path.join(REPO, 'package.json'), path.join(root, 'package.json'));
+  // The root target: bridges/project.md and the seven bridges rendered from it.
+  fs.cpSync(path.join(REPO, 'bridges'), path.join(root, 'bridges'), { recursive: true });
+  for (const rel of BRIDGES) {
+    fs.mkdirSync(path.dirname(path.join(root, rel)), { recursive: true });
+    fs.copyFileSync(path.join(REPO, rel), path.join(root, rel));
+  }
   return root;
 }
 
@@ -84,6 +91,24 @@ test('a version bump restamps the generated SKILL.md and sync agrees with the st
   assert.match(skill, /\nversion: 9\.8\.7\n/);
   assert.match(skill, /^# RDAP-Q /m);
   assert.deepEqual(hermes.checkFrontmatter(skill, '9.8.7'), []);
+});
+
+test('the bridges and the NeMo system prompt are rendered from one source each; drift catches a hand edit', () => {
+  const root = scratch();
+  assert.deepEqual(drift(root), []);
+  fs.appendFileSync(path.join(root, 'CLAUDE.md'), 'hand edit\n');
+  fs.appendFileSync(path.join(root, 'integrations', 'nemo', 'instructions.md'), '11. A new step.\n');
+  const problems = drift(root);
+  assert.ok(problems.includes('CLAUDE.md is stale'), problems.join('\n'));
+  assert.ok(problems.includes('integrations/nemo/examples/workflow.yaml is stale'), problems.join('\n'));
+  assert.equal(problems.filter((p) => p.endsWith('is stale')).length, 2, 'only the two touched copies are stale');
+  write(root);
+  assert.deepEqual(drift(root), []);
+  const template = fs.readFileSync(path.join(root, 'bridges', 'project.md'), 'utf8');
+  for (const rel of BRIDGES) assert.equal(fs.readFileSync(path.join(root, rel), 'utf8'), template, `${rel} is the template, byte for byte`);
+  const workflow = fs.readFileSync(path.join(root, 'integrations', 'nemo', 'examples', 'workflow.yaml'), 'utf8');
+  assert.match(workflow, /^ {4}11\. A new step\.$/m, 'the prompt block carries the new step, indented for YAML');
+  assert.match(workflow, /^workflow:\n {2}_type: tool_calling_agent$/m, 'the rest of the YAML is untouched');
 });
 
 test('npm run sync and --check work from the command line', () => {
