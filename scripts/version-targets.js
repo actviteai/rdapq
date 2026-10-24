@@ -10,7 +10,6 @@
 // against vendor docs and the Claude Code, Codex, Copilot, and Grok CLIs; the
 // metadata files nothing consumed were deleted (see CHANGELOG).
 const JSON_TARGETS = [
-  ['rdap-q-skill/manifest.json', ['version']],
   ['plugin.json', ['version']],
   ['plugins/rdap-q/plugin.json', ['version']],
   ['.claude-plugin/plugin.json', ['version']],

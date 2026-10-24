@@ -39,7 +39,7 @@ for (const rel of ['skills.json', 'agentskills.json', 'marketplace.json', '.code
 // Metadata must not name listings or schemas that do not exist. Both were
 // invented once: catalog ids for catalogs RDAP-Q is not in, and $schema URLs
 // under github.com/agent-skills/spec, which is a 404.
-for (const rel of ['plugin.json', '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.claude-plugin/plugin-index.json', 'plugins/rdap-q/plugin.json', 'rdap-q-skill/manifest.json']) {
+for (const rel of ['plugin.json', '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.claude-plugin/plugin-index.json', 'plugins/rdap-q/plugin.json']) {
   ban(rel, /"marketplace_identifier"/, 'names a marketplace listing that does not exist');
   ban(rel, /agent-skills\/spec/, 'points at a schema repository that does not exist');
 }
@@ -128,17 +128,21 @@ need('rdap-q-skill/README.md', /SKILL\.md` is the instruction source/, 'README m
   // workflow.yaml's system_prompt is rendered from instructions.md by sync-integrations.js (drift() above).
 }
 
-// Every file the skill manifest names must exist. (The root manifest.json was
-// deleted: no program read it, and the rule is JSON only where a program reads it.)
-if (fs.existsSync(path.join(ROOT, 'manifest.json'))) failures.push('manifest.json: nothing reads it; rdap-q-skill/manifest.json is the skill manifest');
-for (const [rel, prefix] of [['rdap-q-skill/manifest.json', 'rdap-q-skill/']]) {
-  const manifest = JSON.parse(read(rel));
-  const named = [manifest.entrypoint, manifest.tool, ...Object.values(manifest.depth_load || {}).flat(), ...Object.values(manifest.event_load || {}).flat()];
+// No manifest.json: no harness reads one (skills are SKILL.md plus files it
+// names), and the rule is JSON only where a program reads it. Both the root
+// and the skill manifest were deleted; the check keeps them deleted.
+for (const rel of ['manifest.json', 'rdap-q-skill/manifest.json']) {
+  if (fs.existsSync(path.join(ROOT, rel))) failures.push(`${rel}: nothing reads it; SKILL.md is the skill's only metadata`);
+}
+// Every playbook SKILL.md names must exist, and every playbook must be named.
+{
+  const named = new Set(read('rdap-q-skill/SKILL.md').match(/playbooks\/[\w-]+\.md/g) || []);
+  if (named.size === 0) failures.push('rdap-q-skill/SKILL.md: must name its playbooks');
   for (const item of named) {
-    if (!item || !fs.existsSync(path.join(ROOT, prefix, item))) failures.push(`${rel}: names a missing file ${item}`);
+    if (!fs.existsSync(path.join(ROOT, 'rdap-q-skill', item))) failures.push(`rdap-q-skill/SKILL.md: names a missing file ${item}`);
   }
-  if (!(manifest.event_load && manifest.event_load.git_mutation)) {
-    failures.push(`${rel}: git_mutation event must point at the git playbook`);
+  for (const file of fs.readdirSync(path.join(ROOT, 'rdap-q-skill/playbooks'))) {
+    if (!named.has(`playbooks/${file}`)) failures.push(`rdap-q-skill/playbooks/${file}: SKILL.md never names it, so no run can load it`);
   }
 }
 
@@ -192,7 +196,7 @@ need('rdap-q-skill/SKILL.md', /tool\/rdapq\.js/, 'SKILL must route measurement t
 need('rdap-q-skill/SKILL.md', /Never say COMPLETE unless `gate` printed COMPLETE/, 'SKILL must forbid self-declared completion');
 
 // The engine is the one source of the protocol's numbers and names. Every
-// place that repeats them to a reader (SKILL.md, README, the manifests) must
+// place that repeats them to a reader (SKILL.md, README) must
 // say what `rdapq protocol --json` says, so a change in the engine cannot
 // leave a stale table behind.
 {
@@ -211,10 +215,6 @@ need('rdap-q-skill/SKILL.md', /Never say COMPLETE unless `gate` printed COMPLETE
     for (const [rel, text] of [['rdap-q-skill/SKILL.md', skill], ['README.md', readme]]) {
       if (!text.includes(state)) failures.push(`${rel}: must name the terminal state ${state}`);
     }
-  }
-  for (const rel of ['rdap-q-skill/manifest.json']) {
-    const listed = [...(JSON.parse(read(rel)).terminal_states || [])].sort();
-    if (JSON.stringify(listed) !== JSON.stringify([...p.terminal].sort())) failures.push(`${rel}: terminal_states must be ${p.terminal.join(', ')}`);
   }
   const [top, , , , bottom] = p.scales.Q;
   const scale = `10 ${top[1]} (${top[2]}), 8+ strong, 5+ mixed, under 5 weak, 0 ${bottom[1]} (nothing passed)`;

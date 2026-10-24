@@ -308,7 +308,6 @@ rdapq/
     ├── SKILL.md                  # the protocol (loaded on every /rdapq run)
     ├── tool/rdapq.js             # the engine: start, req, cover, check, gate, memory, export, protocol, hook
     ├── playbooks/                # discover.md and audit.md (full depth), git.md
-    ├── manifest.json             # skill metadata; terminal_states is checked against the engine
     └── install/                  # skill-local installers
 ```
 
