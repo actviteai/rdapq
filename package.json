@@ -44,7 +44,7 @@
     "test": "node scripts/check-versions.js && node scripts/check-static.js && node --test --test-concurrency=1 test/*.js",
     "check": "node scripts/check-versions.js && node scripts/check-static.js",
     "stamp": "node scripts/stamp-version.js",
-    "version": "node scripts/stamp-version.js --git-add && node scripts/sync-integrations.js && git add integrations plugins/rdap-q/skills",
+    "version": "node scripts/stamp-version.js --git-add && node scripts/sync-integrations.js && git add integrations plugins/rdap-q/skills AGENTS.md CLAUDE.md GEMINI.md bridges .github/copilot-instructions.md",
     "sync": "node scripts/sync-integrations.js",
     "install:all": "node bin/rdapq.js install --all",
     "install:claude": "node bin/rdapq.js install --claude",
@@ -63,7 +63,6 @@
   "files": [
     "bin",
     "rdap-q-skill",
-    "manifest.json",
     "plugin.json",
     "install.sh",
     "install.ps1",

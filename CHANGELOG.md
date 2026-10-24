@@ -32,10 +32,13 @@ Changes on `main` that are not in a release yet. npm `latest` is 1.4.0; this tre
 
 ### Removed
 
+- The root `manifest.json`. No program read it (only the version stamp touched it), and it repeated `rdap-q-skill/manifest.json` with different path prefixes. The rule is JSON only where a program reads it. The static check keeps it deleted.
+
 - Metadata files no harness reads, checked against vendor docs and the Claude Code, Codex, Copilot, and Grok CLIs: `skills.json`, `agentskills.json`, the root `marketplace.json`, `.codex/skill.json`, `.grok/skill.json`, `.grok-plugin/`, and `.agents/plugins/rdap-q/plugin.json`. The root `marketplace.json` also broke `copilot plugin marketplace add`, because Copilot reads it before `.claude-plugin/marketplace.json`. The static checks keep these files deleted.
 
 ### Changed
 
+- **One source per repeated text.** The seven project bridges (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, Cline, Goose, Grok, Copilot) were byte-identical files maintained by hand; they are now generated from `bridges/project.md` by `npm run sync`. The NeMo example workflow's `system_prompt` is rendered from `instructions.md` instead of being checked for equality after the fact. `npm test` fails on drift in either. `CONTRIBUTING.md` draws the whole source-to-copy pipeline and states the design review scale (0 alpha … 10 omega: correct and enforced).
 - Oracle weights are runtime 30, repo 20, coverage 20, repro 10, external 10, claims 10 (were 35/25/–/10/15/15). Q from a 2.0.0 pre-release log is not comparable.
 - `.claude-plugin/plugin.json` passes `claude plugin validate`: `repository` is a string, `skills` is `["./rdap-q-skill"]`, and the `rules` and `commands` fields Claude Code rejects are gone. The root `plugin.json` keeps only `name`, `version`, `description`, and `skills`, so a whole-repo install in Copilot or Grok still finds the skill.
 - README: four badges instead of fourteen, no JSON-LD block, no emoji headings. Ten npm keywords instead of 32.

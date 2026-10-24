@@ -4,6 +4,8 @@ const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+const { BRIDGES, BRIDGE_TEMPLATE, CLAUDE_COMMAND } = require('./version-targets');
+
 const ROOT = path.resolve(__dirname, '..');
 const failures = [];
 
@@ -37,7 +39,7 @@ for (const rel of ['skills.json', 'agentskills.json', 'marketplace.json', '.code
 // Metadata must not name listings or schemas that do not exist. Both were
 // invented once: catalog ids for catalogs RDAP-Q is not in, and $schema URLs
 // under github.com/agent-skills/spec, which is a 404.
-for (const rel of ['plugin.json', '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.claude-plugin/plugin-index.json', 'plugins/rdap-q/plugin.json', 'manifest.json', 'rdap-q-skill/manifest.json']) {
+for (const rel of ['plugin.json', '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json', '.claude-plugin/plugin-index.json', 'plugins/rdap-q/plugin.json', 'rdap-q-skill/manifest.json']) {
   ban(rel, /"marketplace_identifier"/, 'names a marketplace listing that does not exist');
   ban(rel, /agent-skills\/spec/, 'points at a schema repository that does not exist');
 }
@@ -123,15 +125,13 @@ need('rdap-q-skill/README.md', /SKILL\.md` is the instruction source/, 'README m
     const literal = `Literal[${values.map((v) => `"${v}"`).join(', ')}]`;
     if (!values.length || !register.includes(literal)) failures.push(`integrations/nemo: register.py must offer the engine's ${name} as ${literal}`);
   }
-  const workflow = /^ {2}system_prompt: \|\n((?: {4}.*\n|\n)+)/m.exec(read('integrations/nemo/examples/workflow.yaml'));
-  const inline = workflow ? workflow[1].replace(/^ {4}/gm, '').trim() : '';
-  if (inline !== read('integrations/nemo/instructions.md').trim()) {
-    failures.push('integrations/nemo/examples/workflow.yaml: system_prompt must be instructions.md verbatim');
-  }
+  // workflow.yaml's system_prompt is rendered from instructions.md by sync-integrations.js (drift() above).
 }
 
-// Every file a manifest names must exist.
-for (const [rel, prefix] of [['manifest.json', ''], ['rdap-q-skill/manifest.json', 'rdap-q-skill/']]) {
+// Every file the skill manifest names must exist. (The root manifest.json was
+// deleted: no program read it, and the rule is JSON only where a program reads it.)
+if (fs.existsSync(path.join(ROOT, 'manifest.json'))) failures.push('manifest.json: nothing reads it; rdap-q-skill/manifest.json is the skill manifest');
+for (const [rel, prefix] of [['rdap-q-skill/manifest.json', 'rdap-q-skill/']]) {
   const manifest = JSON.parse(read(rel));
   const named = [manifest.entrypoint, manifest.tool, ...Object.values(manifest.depth_load || {}).flat(), ...Object.values(manifest.event_load || {}).flat()];
   for (const item of named) {
@@ -151,9 +151,9 @@ for (const [rel, prefix] of [['manifest.json', ''], ['rdap-q-skill/manifest.json
     'rdap-q-skill/SKILL.md',
     ...fs.readdirSync(path.join(ROOT, 'rdap-q-skill', 'playbooks')).map((f) => `rdap-q-skill/playbooks/${f}`),
     'integrations/nemo/instructions.md',
-    'AGENTS.md', 'CLAUDE.md', 'GEMINI.md',
-    'bridges/cline/rdapq.md', 'bridges/goose/goosehints', 'bridges/grok/rules.md', 'bridges/claude/commands/rdapq.md',
-    '.github/copilot-instructions.md',
+    BRIDGE_TEMPLATE,
+    ...BRIDGES,
+    CLAUDE_COMMAND,
   ];
   const DIAGRAMS = /^\s*(stateDiagram(-v2)?|flowchart|graph|sequenceDiagram)\b/;
   for (const rel of MODEL_FACING) {
@@ -212,7 +212,7 @@ need('rdap-q-skill/SKILL.md', /Never say COMPLETE unless `gate` printed COMPLETE
       if (!text.includes(state)) failures.push(`${rel}: must name the terminal state ${state}`);
     }
   }
-  for (const rel of ['manifest.json', 'rdap-q-skill/manifest.json']) {
+  for (const rel of ['rdap-q-skill/manifest.json']) {
     const listed = [...(JSON.parse(read(rel)).terminal_states || [])].sort();
     if (JSON.stringify(listed) !== JSON.stringify([...p.terminal].sort())) failures.push(`${rel}: terminal_states must be ${p.terminal.join(', ')}`);
   }
@@ -223,7 +223,7 @@ need('rdap-q-skill/SKILL.md', /Never say COMPLETE unless `gate` printed COMPLETE
 for (const gone of ['core', 'state', 'templates']) {
   if (fs.existsSync(path.join(ROOT, 'rdap-q-skill', gone))) failures.push(`rdap-q-skill/${gone}/ was replaced by the engine and must stay deleted`);
 }
-for (const bridge of ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md', 'bridges/cline/rdapq.md', 'bridges/goose/goosehints', 'bridges/grok/rules.md', '.github/copilot-instructions.md', 'bridges/claude/commands/rdapq.md']) {
+for (const bridge of [BRIDGE_TEMPLATE, ...BRIDGES, CLAUDE_COMMAND]) {
   need(bridge, /^Fallback: /m, 'bridge needs a Fallback line the installer can point at the installed core');
 }
 
