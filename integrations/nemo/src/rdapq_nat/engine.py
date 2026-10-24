@@ -172,10 +172,16 @@ class Engine:
         no_defect: bool = False,
         depth: str | None = None,
         keep: bool = False,
+        task: str | None = None,
+        reqs: list[str] | None = None,
     ) -> dict[str, Any]:
         argv = ["start", "--risk", risk.upper(), "--files", ",".join(files)]
         for command in run:
             argv += ["--run", command]
+        if task:
+            argv += ["--task", task]
+        for clause in reqs or []:
+            argv += ["--req", clause]
         if repro:
             argv += ["--repro", repro]
         if no_defect:
@@ -194,7 +200,14 @@ class Engine:
             argv += ["--drop", ",".join(drop)]
         return _usage(await self._run(*argv))
 
+    async def req(self, text: str) -> dict[str, Any]:
+        return _usage(await self._run("req", text))
+
+    async def cover(self, req: str, file: str, text: str) -> dict[str, Any]:
+        return _usage(await self._run("cover", req, file, text))
+
     async def check(self, before: bool = False) -> dict[str, Any]:
+        """The oracle table and, after it, the verdict `check` printed (stdout)."""
         return _usage(await self._run("check", *(["--before"] if before else [])))
 
     async def gate(self) -> dict[str, Any]:

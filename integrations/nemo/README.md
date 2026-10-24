@@ -36,10 +36,12 @@ The group key in your workflow becomes the tool prefix. With the key `rdapq` you
 
 | Tool | Engine command | What it returns |
 | --- | --- | --- |
-| `rdapq__start` | `start` | the plan the engine recorded (stdout) |
+| `rdapq__start` | `start` | the plan the engine recorded and the memory records that match the task (stdout) |
 | `rdapq__plan` | `plan --why --add --drop` | the amended file list (stdout) |
-| `rdapq__check` | `check [--before]` | the oracle table (stdout) |
-| `rdapq__gate` | `gate --json` | `{verdict, reasons, round, Q}` as the engine wrote it |
+| `rdapq__req` | `req` | the new requirement's id (stdout) |
+| `rdapq__cover` | `cover <R-id> <file> <text>` | confirmation, or an error when the file is not a test that contains the text |
+| `rdapq__check` | `check [--before]` | the oracle table and the verdict with its reasons (stdout) |
+| `rdapq__gate` | `gate --json` | `{verdict, reasons, round, Q}` as the engine wrote it, without running anything |
 | `rdapq__claim` | `claim --external` | confirmation |
 | `rdapq__note` | `note <type>` | confirmation |
 | `rdapq__state` | `state --json` | plan, rounds, last check, notes, and the gate's current verdict; read-only |

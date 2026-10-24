@@ -51,6 +51,8 @@ async def test_tool_schemas_are_what_the_model_needs():
     assert start["properties"]["risk"]["enum"] == ["LOW", "MODERATE", "HIGH", "CRITICAL"]
     assert tools["rdapq__note"]["parameters"]["properties"]["type"]["enum"] == ["assumption", "decision", "risk", "blocker", "question"]
     assert tools["rdapq__plan"]["parameters"]["required"] == ["why"]
+    assert tools["rdapq__req"]["parameters"]["required"] == ["text"]
+    assert tools["rdapq__cover"]["parameters"]["required"] == ["req", "file", "text"]
     assert tools["rdapq__gate"]["parameters"]["properties"] == {}
     assert tools["rdapq__state"]["parameters"]["properties"] == {}
     assert "never claim COMPLETE" in tools["rdapq__gate"]["description"]
@@ -63,14 +65,16 @@ async def test_tools_drive_the_engine_from_start_to_complete(buggy_repo, engine_
         await b.add_function_group("rdapq", RdapqConfig(repo_dir=str(buggy_repo), rdapq_js_path=engine_path, include=list(TOOLS)))
         tool = {t: await b.get_function(f"rdapq__{t}") for t in TOOLS}
 
-        started = await tool["start"].ainvoke({"risk": "LOW", "files": ["src/add.js"], "run": [TEST_CMD]})
+        started = await tool["start"].ainvoke({"risk": "LOW", "files": ["src/add.js"], "run": [TEST_CMD], "task": "make add add", "reqs": ["adds two numbers"]})
         assert started["ok"], started
-        await tool["check"].ainvoke({})
+        checked = await tool["check"].ainvoke({})
+        assert "RDAP-Q gate: CONTINUE" in checked["stdout"]
         assert (await tool["gate"].ainvoke({}))["verdict"] == "CONTINUE"
         await tool["note"].ainvoke({"type": "decision", "text": "fix the operator, not the test"})
         await tool["plan"].ainvoke({"why": "keep the plan honest", "drop": ["README.md"]})
         await tool["claim"].ainvoke({"text": "node:test ships with Node 22", "source": "https://nodejs.org/api/test.html", "verified": True})
         fix(buggy_repo)
+        assert (await tool["cover"].ainvoke({"req": "R1", "file": "test/add.test.js", "text": "adds"}))["ok"]
         await tool["check"].ainvoke({"before": False})
         done = await tool["gate"].ainvoke({})
         state = await tool["state"].ainvoke({})
@@ -79,7 +83,7 @@ async def test_tools_drive_the_engine_from_start_to_complete(buggy_repo, engine_
     assert state["gate"]["verdict"] == "COMPLETE"
     assert state["notes"][-1]["text"] == "fix the operator, not the test"
     kinds = [json.loads(line)["kind"] for line in (buggy_repo / ".rdapq" / "state.jsonl").read_text().splitlines()]
-    assert kinds == ["start", "check", "gate", "note", "plan", "claim", "check", "gate"]
+    assert kinds == ["start", "check", "gate", "gate", "note", "plan", "claim", "cover", "check", "gate", "gate"]
 
 
 async def test_bad_tool_input_is_rejected_before_the_engine_runs(buggy_repo, engine_path):

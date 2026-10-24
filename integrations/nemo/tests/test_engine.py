@@ -25,24 +25,34 @@ async def test_full_loop_reaches_complete_with_the_engines_own_verdicts(buggy_re
     e = Engine(str(buggy_repo), engine_path)
 
     assert (await e.gate())["verdict"] == "UNCLEAR_TASK"
-    started = await e.start("LOW", ["src/add.js"], [TEST_CMD])
+    started = await e.start("LOW", ["src/add.js"], [TEST_CMD], task="make add add", reqs=["adds two numbers"])
     assert started["ok"], started
-    assert "started: risk LOW" in started["stdout"]
+    assert ": risk LOW, depth lean" in started["stdout"]
+    assert "requirements: 1 (R1)" in started["stdout"]
 
     failing = await e.check()
     assert failing["ok"] and "runtime  fail" in failing["stdout"]
+    assert "RDAP-Q gate: CONTINUE" in failing["stdout"], "check returns the verdict itself"
     g = await e.gate()
     assert (g["verdict"], g["exit_code"], g["ok"]) == ("CONTINUE", 3, True)
     assert any("runtime is fail" in r for r in g["reasons"])
+    assert any("coverage is fail" in r for r in g["reasons"])
 
     fix(buggy_repo)
-    assert (await e.check())["ok"]
+    bad = await e.cover("R1", "test/add.test.js", "not in the file")
+    assert bad["ok"] is False and "is not in test/add.test.js" in bad["error"]
+    assert (await e.cover("R1", "test/add.test.js", "adds"))["ok"]
+    checked = await e.check()
+    assert checked["ok"] and "RDAP-Q gate: COMPLETE" in checked["stdout"]
     done = await e.gate()
     assert (done["verdict"], done["exit_code"]) == ("COMPLETE", 0)
 
     state = await e.state()
     assert state["ok"] and state["task"] is True
     assert state["spec"]["files"] == ["src/add.js"]
+    assert state["spec"]["task"] == "make add add"
+    assert state["spec"]["reqs"] == [{"id": "R1", "text": "adds two numbers"}]
+    assert state["covers"] == [{"req": "R1", "file": "test/add.test.js", "text": "adds"}]
     assert state["rounds"] == 2
     assert state["gate"]["verdict"] == "COMPLETE"
     # gate's result is the engine's JSON, untouched apart from ok/exit_code.
@@ -117,8 +127,9 @@ async def test_timeout_also_stops_the_commands_check_started(tmp_path, buggy_rep
 async def test_concurrent_calls_run_one_at_a_time(buggy_repo, engine_path):
     """tool_calling_agent runs one turn's tool calls concurrently; gate must see check's round."""
     e = Engine(str(buggy_repo), engine_path)
-    assert (await e.start("LOW", ["src/add.js"], [TEST_CMD]))["ok"]
+    assert (await e.start("LOW", ["src/add.js"], [TEST_CMD], reqs=["adds"]))["ok"]
     fix(buggy_repo)
+    assert (await e.cover("R1", "test/add.test.js", "adds"))["ok"]
     checked, gated = await asyncio.gather(e.check(), e.gate())
     assert checked["ok"], checked
     assert gated["verdict"] == "COMPLETE", gated
@@ -127,6 +138,7 @@ async def test_concurrent_calls_run_one_at_a_time(buggy_repo, engine_path):
 async def test_plan_amends_the_file_list_so_an_extra_file_can_pass(buggy_repo, engine_path):
     e = Engine(str(buggy_repo), engine_path)
     assert (await e.start("LOW", ["src/add.js"], [TEST_CMD]))["ok"]
+    assert (await e.req("adds negatives"))["ok"], "a clause can be added after start"
     fix(buggy_repo)
     (buggy_repo / "test" / "more.test.js").write_text(
         "const test = require('node:test');\nconst assert = require('node:assert/strict');\n"
@@ -136,6 +148,7 @@ async def test_plan_amends_the_file_list_so_an_extra_file_can_pass(buggy_repo, e
     first = await e.gate()
     assert first["verdict"] == "CONTINUE" and any("unplanned: test/more.test.js" in r for r in first["reasons"]), first
     assert (await e.plan("cover negative numbers", add=["test/more.test.js"]))["ok"]
+    assert (await e.cover("R1", "test/more.test.js", "adds negatives"))["ok"]
     await e.check()
     assert (await e.gate())["verdict"] == "COMPLETE"
     missing_why = await e.plan("")

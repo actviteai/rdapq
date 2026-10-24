@@ -147,6 +147,36 @@ const skill = read('rdap-q-skill/SKILL.md');
 if (Buffer.byteLength(skill) > 6144) failures.push(`rdap-q-skill/SKILL.md is ${Buffer.byteLength(skill)} bytes; keep it under 6144 (about 1.5k tokens)`);
 need('rdap-q-skill/SKILL.md', /tool\/rdapq\.js/, 'SKILL must route measurement through the bundled tool');
 need('rdap-q-skill/SKILL.md', /Never say COMPLETE unless `gate` printed COMPLETE/, 'SKILL must forbid self-declared completion');
+
+// The engine is the one source of the protocol's numbers and names. Every
+// place that repeats them to a reader (SKILL.md, README, the manifests) must
+// say what `rdapq protocol --json` says, so a change in the engine cannot
+// leave a stale table behind.
+{
+  const { protocol } = require('../rdap-q-skill/tool/rdapq.js');
+  const p = protocol();
+  const readme = read('README.md');
+  for (const [name, weight] of Object.entries(p.weights)) {
+    const row = new RegExp(`^\\| ${name} \\| ${weight} \\|`, 'm');
+    if (!row.test(skill)) failures.push(`rdap-q-skill/SKILL.md: oracle table must have a row "| ${name} | ${weight} |"`);
+    if (!row.test(readme)) failures.push(`README.md: oracle table must have a row "| ${name} | ${weight} |"`);
+  }
+  const low = p.required.LOW.join(', ');
+  if (!skill.includes(`LOW and MODERATE need ${low}`)) failures.push(`rdap-q-skill/SKILL.md: must say "LOW and MODERATE need ${low}"`);
+  if (!new RegExp(`\\| LOW, MODERATE \\| ${low} \\|`).test(readme)) failures.push(`README.md: risk table must say LOW, MODERATE need ${low}`);
+  for (const state of p.terminal) {
+    for (const [rel, text] of [['rdap-q-skill/SKILL.md', skill], ['README.md', readme]]) {
+      if (!text.includes(state)) failures.push(`${rel}: must name the terminal state ${state}`);
+    }
+  }
+  for (const rel of ['manifest.json', 'rdap-q-skill/manifest.json']) {
+    const listed = [...(JSON.parse(read(rel)).terminal_states || [])].sort();
+    if (JSON.stringify(listed) !== JSON.stringify([...p.terminal].sort())) failures.push(`${rel}: terminal_states must be ${p.terminal.join(', ')}`);
+  }
+  const [top, , , , bottom] = p.scales.Q;
+  const scale = `10 ${top[1]} (${top[2]}), 8+ strong, 5+ mixed, under 5 weak, 0 ${bottom[1]} (nothing passed)`;
+  if (!skill.includes(scale)) failures.push(`rdap-q-skill/SKILL.md: the Q scale line must read "${scale}"`);
+}
 for (const gone of ['core', 'state', 'templates']) {
   if (fs.existsSync(path.join(ROOT, 'rdap-q-skill', gone))) failures.push(`rdap-q-skill/${gone}/ was replaced by the engine and must stay deleted`);
 }

@@ -71,9 +71,9 @@ async def test_tool_calling_agent_runs_the_protocol_to_a_measured_complete(tmp_p
     (buggy_repo / "src" / "add.js").write_text("module.exports = (a, b) => a + b;\n")
     config = {
         "llms": {"llm": {"_type": "rdapq_test_scripted_llm", "script": [
-            _turn("rdapq__start", risk="LOW", files=["src/add.js"], run=[TEST_CMD]),
+            _turn("rdapq__start", risk="LOW", files=["src/add.js"], run=[TEST_CMD], task="make add add", reqs=["adds"]),
+            _turn("rdapq__cover", req="R1", file="test/add.test.js", text="adds"),
             _turn("rdapq__check"),
-            _turn("rdapq__gate"),
             {"content": "RDAP-Q gate: COMPLETE"},
         ]}},
         "function_groups": {"rdapq": {"_type": "rdapq", "repo_dir": str(buggy_repo), "rdapq_js_path": engine_path}},
@@ -96,7 +96,7 @@ async def test_tool_calling_agent_runs_the_protocol_to_a_measured_complete(tmp_p
     assert answer == "RDAP-Q gate: COMPLETE"
     log = (buggy_repo / ".rdapq" / "state.jsonl").read_text().splitlines()
     events = [__import__("json").loads(line) for line in log]
-    assert [e["kind"] for e in events] == ["start", "check", "gate"]
+    assert [e["kind"] for e in events] == ["start", "cover", "check", "gate"], "check logs the verdict it returned"
     assert events[-1]["verdict"] == "COMPLETE", events[-1]
 
 

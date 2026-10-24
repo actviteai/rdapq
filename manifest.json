@@ -13,6 +13,8 @@
   "task_files": {
     "plan": ".rdapq/oracles.json",
     "log": ".rdapq/state.jsonl",
+    "rounds": ".rdapq/rounds/",
+    "archive": ".rdapq/archive/",
     "depth": ".rdapq/depth"
   },
   "always_load": [

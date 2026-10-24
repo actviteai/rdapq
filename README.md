@@ -21,23 +21,24 @@ This GitHub tree is protocol **2.0.0**. It is on `main` and is not published to 
 
 Coding agents often say "done" when they are not. They grade their own work, and a self-grade is an opinion. RDAP-Q moves that decision into code: **the model proposes, the tool decides.**
 
-The agent reads `SKILL.md` (about 1.2k tokens), plans the change, and then drives `tool/rdapq.js`, a zero-dependency Node script that ships inside the skill:
+The agent reads `SKILL.md` (about 1.5k tokens), plans the change, and then drives `tool/rdapq.js`, a zero-dependency Node script that ships inside the skill:
 
 | Step | Command | What the tool does |
 | :--- | :--- | :--- |
-| Plan | `start --risk LOW --files a,b --run "npm test"` | Records what "done" means: risk, planned files, required commands, optional repro. |
+| Plan | `start --risk LOW --task "<request>" --req "<clause>" --files a,b --run "npm test"` | Records what "done" means: risk, the request, its requirement clauses, planned files, required commands, optional repro. |
 | Prove the bug | `check --before` | Runs the repro so the fix can be shown to change it from failing to passing. |
-| Measure | `check` | Runs the commands and scores five oracles. Appends one line to the task log. |
-| Decide | `gate` | Names the terminal state from the log. COMPLETE only when every required oracle passes. |
+| Cover | `cover R1 test/a.test.js "<test name>"` | Ties each requirement to a test that exists and names it. |
+| Measure and decide | `check` | Runs the commands, scores six oracles, saves the round's patch, and prints the verdict. COMPLETE only when every required oracle passes. `gate` reprints it. |
 
 | Problem in typical agents | What RDAP-Q does |
 | :--- | :--- |
 | "Done" with failing or missing tests | `gate` refuses COMPLETE unless the required commands ran and passed. No command at all is `MISSING_TEST`. |
 | Tests pass but never touch the change | runtime only passes when a test that ran changed, or imports a changed module. |
+| Tests only for what was implemented, not what was asked | Each clause of the request is a requirement; coverage passes only when every one is covered by a test that touches the change. |
 | Scope creep and stray edits | repo passes only when the diff matches the planned files; changing the plan needs a logged reason. |
 | Fixes that never proved the bug | HIGH and CRITICAL need a repro that failed before and passes after. |
 | Endless retry loops | At most 3 rounds, and the same failure twice ends as `STALLED`. |
-| Token-heavy state files | One append-only task log written by the tool. Memory is one record per line, searched rather than read. |
+| Token-heavy state files | The model reads a few lines per command; the tool writes the full record (log, patch per round, timings) to disk, where it costs nothing. Memory is one record per line, searched rather than read. |
 
 ---
 
@@ -68,11 +69,12 @@ The host model is the control plane; RDAP-Q runs no server. `bin/rdapq.js` is th
 
 ```mermaid
 flowchart TD
-    A["/rdapq &lt;task&gt;"] --> B["Read SKILL.md<br/>look at the code, search memory"]
-    B --> C["start: risk, planned files,<br/>required commands, repro"]
-    C --> D["Implement the smallest change<br/>plus a test that exercises it"]
-    D --> E["check: run commands,<br/>score the oracles"]
-    E --> F{"gate"}
+    A["/rdapq &lt;task&gt;"] --> B["Read SKILL.md<br/>look at the code"]
+    B --> C["start: risk, task, requirements,<br/>planned files, commands, repro<br/>(prints matching memory)"]
+    C --> D["Implement the smallest change<br/>plus a test per requirement"]
+    D --> D2["cover: tie each requirement<br/>to a test that names it"]
+    D2 --> E["check: run commands, score the oracles,<br/>save the patch, print the verdict"]
+    E --> F{"verdict"}
     F -- "CONTINUE (new failure, rounds &lt; 3)" --> D
     F -- "same failure twice / round cap" --> G["STALLED"]
     F -- "no command" --> H["MISSING_TEST"]
@@ -365,7 +367,7 @@ In the agent:
 
 | Command | Meaning |
 | :--- | :--- |
-| `/rdapq <task>` | Run the task with RDAP-Q: plan, implement, check, gate. |
+| `/rdapq <task>` | Run the task with RDAP-Q: start, implement, cover, check. |
 | `/rdapq depth full <task>` | Also run discovery before `start` and the audit checklist before reporting. |
 | `/rdapq status` | Risk, planned files, last check, and the current gate verdict. |
 | `/rdapq audit` | Adversarial audit checklist, then check and gate again. |
@@ -375,40 +377,46 @@ The engine, run by the agent or by you (`node .agents/skills/rdap-q/tool/rdapq.j
 
 | Command | Meaning |
 | :--- | :--- |
-| `start --risk R --files a,b --run "<cmd>" [--repro "<cmd>" \| --no-defect] [--depth full] [--keep]` | Define done for a new task (`--keep`: redefine the current one). |
+| `start --risk R --task "<request>" --req "<clause>" [--req ...] --files a,b --run "<cmd>" [--repro "<cmd>" \| --no-defect] [--depth full] [--keep]` | Define done for a new task (`--keep`: redefine the current one). Prints the memory records that match it. |
 | `plan --add a --drop b --why "<reason>"` | Change the planned files, with a logged reason. |
-| `check [--before]` | Run the oracles (`--before`: run the repro before fixing). |
-| `gate [--json]` | Terminal state. Exit code 0 COMPLETE, 3 CONTINUE, 1 otherwise. |
+| `req "<clause>"` | Add a requirement mid-task. |
+| `cover <R-id> <test-file> "<text>"` | Tie a requirement to a test: the file must be a test that contains the text. |
+| `check [--before]` | Run the oracles, save the round's patch, and print the verdict (`--before`: run the repro before fixing). |
+| `gate [--json]` | Reprint the terminal state without running anything. Exit code 0 COMPLETE, 3 CONTINUE, 1 otherwise. |
 | `claim "<fact>" [--external] [--source s] [--verified] [--off-path]` | Record a claim for the external and claims oracles. |
 | `note decision\|assumption\|risk\|question\|blocker "<text>"` | Log a note. A blocker makes the gate report BLOCKED. |
 | `state [--json]` | Task summary. `--json` prints one JSON object (`spec`, `required`, `rounds`, `lastCheck`, `notes`, `gate`) and writes nothing. |
 | `memory add\|search\|stale\|stats\|compact` | Durable memory. |
 | `export --out <file> [--repo <dir>]...` | Append anonymized measurement rows (no text, paths, or code) for training or eval. |
+| `protocol [--json]` | The risks, required oracles, weights, and what every score means. |
 | `hook-stop` | Claude Code Stop hook. |
 
 ---
 
 ## <a id="oracles"></a> Oracles and gates
 
-`check` computes five oracles. Each is `pass`, `partial`, `fail`, or not applicable:
+`check` computes six oracles. Each is `pass` (10), `partial` (5), `fail` (0), or not applicable:
 
 | Oracle | Weight | Pass | Partial |
 | :--- | :---: | :--- | :--- |
-| runtime | 35 | Every `--run` command exits 0, and a test changed or imports a changed file by path. | Commands pass, but no test touches the change. |
-| repo | 25 | The diff touches exactly the planned files. | Extra files are only lockfiles or build output. |
+| runtime | 30 | Every `--run` command exits 0, and a test changed or imports a changed file by path. | Commands pass, but no test touches the change. |
+| repo | 20 | The diff touches exactly the planned files. | Extra files are only lockfiles or build output. |
+| coverage | 20 | Every requirement (`--req`, `req`) is covered by a test that exists, contains the cover's text, and changed or imports a changed file. Its value is covered/total on the 0–10 scale. | Some requirements are covered. |
 | repro | 10 | The repro failed before the fix (run before any source edit) and passes after it. | It passes now, but was not run before the source changed. |
-| external | 15 | Every recorded external claim is verified. | Unverified claims are all marked off the changed path. |
-| claims | 15 | Share of recorded claims that are verified, 0–10. | — |
+| external | 10 | Every recorded external claim is verified. | Unverified claims are all marked off the changed path. |
+| claims | 10 | Share of recorded claims that are verified, 0–10. | — |
 
-Q is the weighted mean of the oracles that ran; it is reported, not used to decide. `gate` decides:
+Q is the weighted mean of the oracles that ran. Its scale has a named floor and ceiling, so a number is never read without its meaning: **10 omega** (every measured oracle passed), **8+ strong** (light evidence missing), **5+ mixed** (a failing oracle, or several partial ones), **under 5 weak** (the main oracles failed), **0 alpha** (no measured oracle passed). `rdapq protocol` prints every scale. Q informs; the gate decides:
 
 | Risk | Required to pass |
 | :--- | :--- |
-| LOW, MODERATE | runtime, repo |
-| HIGH | runtime, repo, repro (or `--no-defect`) |
-| CRITICAL | runtime, repo, repro, and every recorded external claim verified |
+| LOW, MODERATE | runtime, repo, coverage |
+| HIGH | runtime, repo, coverage, repro (or `--no-defect`) |
+| CRITICAL | runtime, repo, coverage, repro, and every recorded external claim verified |
 
-Any oracle at `fail` blocks COMPLETE. A check is tied to the plan it ran against: editing files or changing the plan afterwards means checking again. `check` refuses a fourth round. Terminal states are `COMPLETE`, `STALLED` (same failure twice, or 3 rounds used), `BLOCKED` (a blocker note), `MISSING_TEST` (no required command), and `UNCLEAR_TASK` (not started, or no planned files by the round cap). A new `start` archives the previous task's log to `.rdapq/archive/`. `CONTINUE` means fix the first reason and check again. A task is COMPLETE only when `gate` prints it, and the agent reports the verdict and its reasons exactly as printed.
+Any oracle at `fail` blocks COMPLETE. A check is tied to the plan it ran against: editing files, changing the plan, or adding a requirement afterwards means checking again. `check` refuses a fourth round. Terminal states are `COMPLETE`, `STALLED` (same failure twice, or 3 rounds used), `BLOCKED` (a blocker note), `MISSING_TEST` (no required command), and `UNCLEAR_TASK` (not started, or no planned files by the round cap). A new `start` moves the previous task's files to `.rdapq/archive/<time>/`. `CONTINUE` means fix the first reason and check again. A task is COMPLETE only when the tool prints it, and the agent reports the verdict and its reasons exactly as printed.
+
+Coverage is the one oracle that looks at the request rather than the code. In the 2.0.0 eval every false COMPLETE came from a spec clause the agent never wrote a test for; the engine measured the tests that existed correctly. Listing each clause as a requirement and covering it is a gauntlet the tool can enforce: the agent names the test, the tool checks that it exists, names it, and touches the change.
 
 ---
 
@@ -416,8 +424,10 @@ Any oracle at `fail` blocks COMPLETE. A check is tied to the plan it ran against
 
 ```
 <repo>/.rdapq/
-├── oracles.json     # what "done" means: risk, files, commands, repro (written by start and plan)
-├── state.jsonl      # append-only: start, plan, check, claim, note, gate
+├── oracles.json     # what "done" means: id, risk, task, requirements, files, commands, repro (start, plan, req)
+├── state.jsonl      # append-only: start, plan, req, cover, check, gate, claim, note, stop
+├── rounds/<n>.patch # the exact diff each check round measured
+├── archive/<time>/  # the previous task (oracles.json, state.jsonl, rounds/), moved whole by the next start
 └── depth            # optional: "full" to default this repo to full depth
 
 $RDAPQ_HOME/ (default ~/.rdapq)
@@ -426,7 +436,7 @@ $RDAPQ_HOME/ (default ~/.rdapq)
 └── projects/<id>/records.jsonl       # per-project memory
 ```
 
-The agent never rewrites task files; the tool appends to them. Memory records are one line each, with provenance (`class`, `evidence`, `verified` date) and status (`ACTIVE`, `STALE`, `SUPERSEDED`, `INVALID`). The tool enforces the rules instead of asking the model to: facts up to 240 characters, evidence up to 160, at most 80 active global and 40 active project records, no duplicates, and nothing that looks like a secret. `memory search` returns at most 12 matching records, so memory never loads in bulk. `memory compact` moves retired records to `archive/YYYY-MM.jsonl`.
+The agent never reads or rewrites task files; the tool appends to them. That split is what keeps the protocol cheap: the model sees a few lines per command, while the record on disk holds the task statement, each requirement and its cover, every command's exit code and duration, the diff statistics and full patch of every round, each verdict, and every stop the Claude Code hook refused. `export` turns that record into one anonymized row per task (counts, scores, verdicts; never text, paths, or code). Memory records are one line each, with provenance (`class`, `evidence`, `verified` date) and status (`ACTIVE`, `STALE`, `SUPERSEDED`, `INVALID`). The tool enforces the rules instead of asking the model to: facts up to 240 characters, evidence up to 160, at most 80 active global and 40 active project records, no duplicates, and nothing that looks like a secret. `memory search` returns at most 12 matching records, so memory never loads in bulk. `memory compact` moves retired records to `archive/YYYY-MM.jsonl`.
 
 ---
 
@@ -484,7 +494,7 @@ rdapq/
 ├── manifest.json, package.json
 └── rdap-q-skill/                 # the skill that gets installed
     ├── SKILL.md                  # the protocol (loaded on every /rdapq run)
-    ├── tool/rdapq.js             # the engine: start, check, gate, memory, export, hook
+    ├── tool/rdapq.js             # the engine: start, req, cover, check, gate, memory, export, protocol, hook
     ├── playbooks/                # discover.md and audit.md (full depth), git.md
     ├── manifest.json
     └── install/                  # skill-local installers
@@ -501,7 +511,7 @@ A prompt asks the model to check itself and trusts what it reports. RDAP-Q hands
 
 <details>
 <summary><strong>Can I use RDAP-Q in CI?</strong></summary>
-Yes. <code>rdapq gate</code> exits 0 only on COMPLETE, and <code>.rdapq/state.jsonl</code> is plain JSON lines, so a CI job can re-run <code>rdapq check && rdapq gate</code> on the agent's branch.
+Yes. <code>rdapq gate</code> exits 0 only on COMPLETE, and <code>.rdapq/state.jsonl</code> is plain JSON lines, so a CI job can re-run <code>rdapq check && rdapq gate</code> on the agent's branch, and <code>.rdapq/rounds/</code> holds the patch each round measured.
 </details>
 
 <details>

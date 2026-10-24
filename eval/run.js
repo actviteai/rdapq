@@ -168,7 +168,7 @@ function gateVerdict(workdir) {
 
 /**
  * RDAP-Q task state left in the repository: the 1.x .rdapq/state/*.md files,
- * or the 2.x .rdapq/state.jsonl and oracles.json. The depth files prepare()
+ * or the 2.x .rdapq/state.jsonl, oracles.json, and rounds/*.patch. The depth files prepare()
  * seeds are excluded, so a run that wrote no state measures 0.
  */
 function stateFootprint(workdir) {
@@ -176,6 +176,9 @@ function stateFootprint(workdir) {
   const legacy = path.join(root, 'state');
   const candidates = ['state.jsonl', 'oracles.json'];
   if (fs.existsSync(legacy)) candidates.push(...fs.readdirSync(legacy).map((name) => `state/${name}`));
+  // 2.x also keeps the patch each check round measured.
+  const rounds = path.join(root, 'rounds');
+  if (fs.existsSync(rounds)) candidates.push(...fs.readdirSync(rounds).map((name) => `rounds/${name}`));
   let files = 0;
   let bytes = 0;
   for (const rel of candidates) {
