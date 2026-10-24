@@ -1,7 +1,7 @@
 ---
 name: rdap-q
 description: "Use when the user asks for RDAP-Q or evidence-gated work. A bundled tool runs the checks and names the verdict, so the model never grades its own work."
-version: 2.0.0
+version: 2.1.0
 license: GPL-3.0-or-later
 platforms: [linux, macos, windows]
 metadata:
@@ -9,7 +9,7 @@ metadata:
     tags: [quality-gates, evidence-first, sdlc, coding-agent]
     requires_toolsets: [terminal]
 ---
-# RDAP-Q 2.0.0
+# RDAP-Q 2.1.0
 
 RDAP-Q makes "done" something a tool measures, not something you claim. You plan the change, `scripts/rdapq.js` runs the checks, and its verdict names the result. Follow this for the current task only.
 

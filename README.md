@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/actviteai/rdapq/actions/workflows/ci.yml/badge.svg)](https://github.com/actviteai/rdapq/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![Protocol Version](https://img.shields.io/badge/Protocol-v2.0.0-emerald.svg)](https://github.com/actviteai/rdapq)
+[![Protocol Version](https://img.shields.io/badge/Protocol-v2.1.0-emerald.svg)](https://github.com/actviteai/rdapq)
 [![npm](https://img.shields.io/npm/v/@actvite/rdapq.svg)](https://www.npmjs.com/package/@actvite/rdapq)
 
 Harnesses: Cursor, OpenAI Codex, Claude Code, GitHub Copilot, Grok Build, Google Antigravity, Block Goose, Cline, and Nous Research Hermes Agent. Framework: NVIDIA NeMo Agent Toolkit. See [Install](#install).
@@ -229,7 +229,7 @@ Q is the weighted mean of the oracles that ran. Its scale has a named floor and 
 
 Any oracle at `fail` blocks COMPLETE. A check is tied to the plan it ran against: editing files, changing the plan, or adding a requirement afterwards means checking again. `check` refuses a fourth round. Terminal states are `COMPLETE`, `STALLED` (same failure twice, or 3 rounds used), `BLOCKED` (a blocker note), `MISSING_TEST` (no required command), and `UNCLEAR_TASK` (not started, or no planned files by the round cap). A new `start` moves the previous task's files to `.rdapq/archive/<time>/`. `CONTINUE` means fix the first reason and check again. A task is COMPLETE only when the tool prints it, and the agent reports the verdict and its reasons exactly as printed.
 
-Coverage is the one oracle that looks at the request rather than the code. In the 2.0.0 eval every false COMPLETE came from a spec clause the agent never wrote a test for; the engine measured the tests that existed correctly. Listing each clause as a requirement and covering it is a gauntlet the tool can enforce: the agent names the test, the tool checks that it exists, names it, and touches the change.
+Coverage is the one oracle that looks at the request rather than the code. In the 2.1.0 eval every false COMPLETE came from a spec clause the agent never wrote a test for; the engine measured the tests that existed correctly. Listing each clause as a requirement and covering it is a gauntlet the tool can enforce: the agent names the test, the tool checks that it exists, names it, and touches the change.
 
 ---
 
