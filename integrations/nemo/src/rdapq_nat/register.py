@@ -5,7 +5,7 @@
         _type: rdapq
         repo_dir: /path/to/repo
     workflow:
-      tool_names: [rdapq]   # rdapq__start, __plan, __check, __gate, __claim, __note, __state
+      tool_names: [rdapq]   # rdapq__start, __plan, __req, __cover, __check, __gate, __claim, __note, __state
 
 Each tool runs the Node engine (rdapq.js) through ``rdapq_nat.engine``. The
 engine decides; these tools only pass arguments through and return what the
@@ -33,7 +33,7 @@ from nat.plugin_api import register_function_group
 from rdapq_nat.engine import Engine
 from rdapq_nat.engine import resolve_engine
 
-TOOLS = ("start", "plan", "check", "gate", "claim", "note", "state")
+TOOLS = ("start", "plan", "req", "cover", "check", "gate", "claim", "note", "state")
 
 
 class RdapqConfig(FunctionGroupBaseConfig, name="rdapq"):
@@ -60,20 +60,27 @@ class NoInput(BaseModel):
 
 DESCRIPTIONS = {
     "start": (
-        "Call this once, before editing. Records what 'done' means: risk, every file you will change "
-        "(tests included), and the commands that must pass. For a bug fix give `repro` (a command that fails now) "
-        "and call check with before=true before editing; when nothing is broken set no_defect=true. "
-        "Calling start again begins a new task and archives the current one; use plan to change the file list instead."
+        "Call this once, before editing. Records what 'done' means: risk, the task in one line, its requirements "
+        "(one testable clause each; the gate needs at least one), every file you will change (tests included), and the "
+        "commands that must pass. For a bug fix give `repro` (a command that fails now) and call check with before=true "
+        "before editing; when nothing is broken set no_defect=true. The result lists memory records that match the task. "
+        "Calling start again begins a new task and archives the current one; use plan and req to change the current one."
     ),
     "plan": "Change the planned files mid-task, with the reason. Call it before check when you must touch a file you did not list.",
+    "req": "Add one requirement: a testable clause of the request. Each requirement must be covered by a test before the task can complete.",
+    "cover": (
+        "Tie a requirement (R1, R2, ...) to the test that proves it: the test file and text that names the test. "
+        "The file must be a test file that exists and contains the text, or the call is refused. Call it after writing the test."
+    ),
     "check": (
-        "Run the required commands and score the oracles. Call after editing. before=true runs only the repro, "
-        "before any source edit. Call one RDAP-Q tool at a time; never call check and gate in the same turn."
+        "Run the required commands, score the oracles, and return the verdict (COMPLETE, CONTINUE, STALLED, BLOCKED, "
+        "MISSING_TEST, UNCLEAR_TASK) with its reasons. Call after editing and covering. before=true runs only the repro, "
+        "before any source edit. On CONTINUE fix the first reason, then check again. Call one RDAP-Q tool at a time."
     ),
     "gate": (
-        "Name the terminal verdict (COMPLETE, CONTINUE, STALLED, BLOCKED, MISSING_TEST, UNCLEAR_TASK) with its reasons. "
-        "On CONTINUE fix the first reason, then check and gate again. Report the verdict exactly as returned; never claim "
-        "COMPLETE unless this tool returned it."
+        "Reprint the current verdict (COMPLETE, CONTINUE, STALLED, BLOCKED, MISSING_TEST, UNCLEAR_TASK) with its reasons, "
+        "without running anything; check already returned it. Report the verdict exactly as returned; never claim "
+        "COMPLETE unless check or this tool returned it."
     ),
     "claim": "Record a fact from outside the repository the change relies on. Set verified=true only after you read its source.",
     "note": "Log an assumption, decision, risk, question, or blocker. A blocker makes gate report BLOCKED; then stop and say what you need.",
@@ -99,8 +106,22 @@ async def rdapq(config: RdapqConfig, builder: Builder):
         repro: Annotated[str | None, Field(description="Bug fixes: a command that fails now and must pass after.")] = None,
         no_defect: Annotated[bool, Field(description="True when nothing is broken (HIGH/CRITICAL then need no repro).")] = False,
         depth: Annotated[Literal["lean", "full"] | None, Field(description="full adds discovery and audit steps.")] = None,
+        task: Annotated[str | None, Field(description="The request in one line, as the user put it.")] = None,
+        reqs: Annotated[list[str] | None, Field(description="The request's testable clauses, one per entry, including errors, empty input, and boundaries.")] = None,
     ) -> dict[str, Any]:
-        return await engine.start(risk, files, run, repro=repro, no_defect=no_defect, depth=depth)
+        return await engine.start(risk, files, run, repro=repro, no_defect=no_defect, depth=depth, task=task, reqs=reqs)
+
+    async def req(
+        text: Annotated[str, Field(description="One testable clause of the request.")],
+    ) -> dict[str, Any]:
+        return await engine.req(text)
+
+    async def cover(
+        req: Annotated[str, Field(description="The requirement id, e.g. R1.")],
+        file: Annotated[str, Field(description="The test file, repo-relative.")],
+        text: Annotated[str, Field(description="Text that is in that file and names the test, e.g. its title.")],
+    ) -> dict[str, Any]:
+        return await engine.cover(req, file, text)
 
     async def plan(
         why: Annotated[str, Field(description="Why the plan changed. It is logged.")],
@@ -137,7 +158,7 @@ async def rdapq(config: RdapqConfig, builder: Builder):
     async def state(args: NoInput) -> dict[str, Any]:
         return await engine.state()
 
-    for fn in (start, plan, check, gate, claim, note, state):
+    for fn in (start, plan, req, cover, check, gate, claim, note, state):
         group.add_function(fn.__name__, fn, description=DESCRIPTIONS[fn.__name__])
 
     yield group

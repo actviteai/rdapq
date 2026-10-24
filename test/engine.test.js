@@ -45,6 +45,10 @@ function rdapq(root, args, extra = {}) {
 
 const fix = (root) => fs.writeFileSync(path.join(root, 'src', 'add.js'), "module.exports = (a, b) => a + b;\n");
 const TEST_CMD = 'node --test test/*.test.js';
+// One requirement, covered by the fixture's own test ("adds"), which imports src/add.js.
+const REQ = ['--req', 'adds'];
+const cover = (root) => rdapq(root, ['cover', 'R1', 'test/add.test.js', 'adds']);
+const readLog = (root) => fs.readFileSync(path.join(root, '.rdapq', 'state.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
 
 test('gate is CONTINUE before any check and UNCLEAR_TASK before start', () => {
   const root = fixture();
@@ -57,10 +61,11 @@ test('gate is CONTINUE before any check and UNCLEAR_TASK before start', () => {
 
 test('a real fix with an importing test reaches COMPLETE', () => {
   const root = fixture();
-  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD]);
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
   const failing = rdapq(root, ['check']);
   assert.match(failing.out, /runtime\s+fail/);
   fix(root);
+  cover(root);
   const passing = rdapq(root, ['check']);
   assert.match(passing.out, /runtime\s+pass .*imports src\/add\.js/);
   assert.match(passing.out, /repo\s+pass/);
@@ -73,8 +78,9 @@ test('a real fix with an importing test reaches COMPLETE', () => {
 
 test('unplanned files fail the repo oracle until the plan is amended with a reason', () => {
   const root = fixture();
-  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD]);
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
   fix(root);
+  cover(root);
   fs.writeFileSync(path.join(root, 'notes.txt'), 'stray\n');
   rdapq(root, ['check']);
   const g = rdapq(root, ['gate']);
@@ -115,9 +121,10 @@ test('HIGH risk needs a repro that failed before and passes after', () => {
   assert.match(rdapq(root, ['gate']).out, /repro is partial/);
 
   const again = fixture();
-  rdapq(again, ['start', '--risk', 'HIGH', '--files', 'src/add.js', '--run', TEST_CMD, '--repro', TEST_CMD]);
+  rdapq(again, ['start', '--risk', 'HIGH', '--files', 'src/add.js', '--run', TEST_CMD, '--repro', TEST_CMD, ...REQ]);
   assert.match(rdapq(again, ['check', '--before']).out, /failed as expected/);
   fix(again);
+  cover(again);
   rdapq(again, ['check']);
   assert.match(rdapq(again, ['gate']).out, /COMPLETE/);
 });
@@ -165,7 +172,7 @@ test('state.jsonl is append-only and oracles.json holds the plan', () => {
   rdapq(root, ['check']);
   rdapq(root, ['note', 'decision', 'keep the signature']);
   const log = fs.readFileSync(path.join(root, '.rdapq', 'state.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
-  assert.deepEqual(log.map((e) => e.kind), ['start', 'check', 'note']);
+  assert.deepEqual(log.map((e) => e.kind), ['start', 'check', 'gate', 'note'], 'check logs the round and the verdict it printed');
   const spec = JSON.parse(fs.readFileSync(path.join(root, '.rdapq', 'oracles.json'), 'utf8'));
   assert.deepEqual(spec.files, ['src/add.js']);
 });
@@ -188,49 +195,59 @@ test('memory: add, search, dedupe, secrets, stale, caps', () => {
 
 test('export writes anonymized measurement rows only', () => {
   const root = fixture();
-  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD]);
+  rdapq(root, ['start', '--risk', 'LOW', '--task', 'Rewire the adder for the Pelican account', '--files', 'src/add.js', '--run', TEST_CMD, '--req', 'adds for Pelican']);
   rdapq(root, ['note', 'decision', 'secretive internal detail']);
   fix(root);
+  rdapq(root, ['cover', 'R1', 'test/add.test.js', 'adds']);
   rdapq(root, ['check']);
-  rdapq(root, ['gate']);
   const outFile = path.join(root, 'export.jsonl');
   rdapq(root, ['export', '--out', outFile]);
   const text = fs.readFileSync(outFile, 'utf8');
   const row = JSON.parse(text);
   assert.equal(row.verdict, 'COMPLETE');
-  assert.equal(row.rounds, 1);
-  assert.doesNotMatch(text, /src\/add\.js|secretive|node --test/);
+  assert.deepEqual([row.rounds, row.reqs, row.covers, row.task_chars, row.checks[0].band, row.checks[0].insertions, row.checks[0].deletions], [1, 1, 1, 40, 'omega', 1, 1]);
+  assert.match(row.id, /^T-\d{8}-[0-9a-f]{4}$/);
+  assert.ok(row.checks[0].ms >= 0);
+  assert.doesNotMatch(text, /src\/add\.js|secretive|node --test|Pelican|Rewire|adds/, 'no paths, notes, commands, task, or requirement text');
 });
 
 test('hook-stop blocks only while the gate says CONTINUE', () => {
   const root = fixture();
   const hook = (input) => spawnSync(process.execPath, [TOOL, 'hook-stop'], { cwd: root, input: JSON.stringify(input), encoding: 'utf8' });
   assert.equal(hook({ cwd: root }).stdout, '');
-  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD]);
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
   const blocked = JSON.parse(hook({ cwd: root }).stdout);
   assert.equal(blocked.decision, 'block');
   assert.match(blocked.reason, /CONTINUE/);
   assert.equal(hook({ cwd: root, stop_hook_active: true }).stdout, '');
+  const stops = readLog(root).filter((e) => e.kind === 'stop');
+  assert.equal(stops.length, 1, 'the refused stop is logged once; a re-entry (stop_hook_active) is not');
+  assert.equal(stops[0].blocked, true);
   fix(root);
+  cover(root);
   rdapq(root, ['check']);
   assert.equal(hook({ cwd: root }).stdout, '');
 });
 
 test('HIGH with --no-defect completes without a repro', () => {
   const root = fixture();
-  rdapq(root, ['start', '--risk', 'HIGH', '--files', 'src/add.js', '--run', TEST_CMD, '--no-defect']);
+  rdapq(root, ['start', '--risk', 'HIGH', '--files', 'src/add.js', '--run', TEST_CMD, '--no-defect', ...REQ]);
   fix(root);
+  cover(root);
   rdapq(root, ['check']);
   assert.match(rdapq(root, ['gate']).out, /COMPLETE/);
 });
 
 test('changing the plan after a passing check invalidates it', () => {
   const root = fixture();
-  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD]);
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
   fix(root);
-  rdapq(root, ['check']);
+  cover(root);
+  assert.match(rdapq(root, ['check']).out, /RDAP-Q gate: COMPLETE/);
   rdapq(root, ['start', '--keep', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, '--run', 'node -e "process.exit(1)"']);
   assert.match(rdapq(root, ['gate']).out, /plan .* changed since the last check/);
+  const spec = JSON.parse(fs.readFileSync(path.join(root, '.rdapq', 'oracles.json'), 'utf8'));
+  assert.deepEqual(spec.reqs, [{ id: 'R1', text: 'adds' }], '--keep keeps the requirements when none are given');
 });
 
 test('a new start archives the previous task log and resets the base', () => {
@@ -361,13 +378,13 @@ test('state --json is machine-readable, matches the gate, and never writes the l
   assert.equal(none.gate.verdict, 'UNCLEAR_TASK');
   assert.equal(fs.existsSync(path.join(root, '.rdapq')), false, 'state must not create .rdapq/');
 
-  rdapq(root, ['start', '--risk', 'HIGH', '--files', 'src/add.js', '--run', TEST_CMD, '--no-defect']);
+  rdapq(root, ['start', '--risk', 'HIGH', '--task', 'make it add', '--files', 'src/add.js', '--run', TEST_CMD, '--no-defect', ...REQ]);
   const fresh = state();
   assert.deepEqual(
-    { task: fresh.task, risk: fresh.spec.risk, depth: fresh.spec.depth, files: fresh.spec.files, run: fresh.spec.run, defect: fresh.spec.defect },
-    { task: true, risk: 'HIGH', depth: 'lean', files: ['src/add.js'], run: [TEST_CMD], defect: false },
+    { task: fresh.task, risk: fresh.spec.risk, depth: fresh.spec.depth, files: fresh.spec.files, run: fresh.spec.run, defect: fresh.spec.defect, text: fresh.spec.task, reqs: fresh.spec.reqs },
+    { task: true, risk: 'HIGH', depth: 'lean', files: ['src/add.js'], run: [TEST_CMD], defect: false, text: 'make it add', reqs: [{ id: 'R1', text: 'adds' }] },
   );
-  assert.deepEqual(fresh.required, ['runtime', 'repo', 'repro']);
+  assert.deepEqual(fresh.required, ['runtime', 'repo', 'coverage', 'repro']);
   assert.deepEqual([fresh.rounds, fresh.maxRounds, fresh.lastCheck], [0, 3, null]);
   assert.equal(fresh.gate.verdict, 'CONTINUE');
 
@@ -384,10 +401,14 @@ test('state --json is machine-readable, matches the gate, and never writes the l
   assert.equal(fs.readFileSync(logFile, 'utf8'), before, 'state --json is read-only');
 
   fix(root);
+  cover(root);
   rdapq(root, ['check']);
   const done = state();
   const gate = JSON.parse(rdapq(root, ['gate', '--json']).out);
   assert.equal(done.gate.verdict, 'COMPLETE');
+  assert.deepEqual(done.covers, [{ req: 'R1', file: 'test/add.test.js', text: 'adds' }]);
+  assert.equal(done.lastCheck.band, 'omega');
+  assert.equal(done.lastCheck.diff.patch, 'rounds/2.patch');
   assert.deepEqual(done.gate, gate, 'state --json reports what gate decides');
   assert.equal(done.lastCheck.oracles.repo.observed, 'pass');
   assert.match(rdapq(root, ['state']).out, /^risk HIGH, depth lean, rounds 2\/3/, 'plain state is unchanged');
@@ -416,7 +437,7 @@ test('task commands never use the RDAP-Q home as a task directory', () => {
   const rdapqHome = path.join(home, '.rdapq');
   fs.mkdirSync(path.join(rdapqHome, 'memory'), { recursive: true });
   const env = { ...process.env, HOME: home, USERPROFILE: home, RDAPQ_HOME: rdapqHome };
-  for (const args of [['start', '--risk', 'LOW', '--files', 'a.js', '--run', 'true'], ['note', 'decision', 'x'], ['claim', 'x'], ['gate'], ['check'], ['state']]) {
+  for (const args of [['start', '--risk', 'LOW', '--files', 'a.js', '--run', 'true'], ['note', 'decision', 'x'], ['claim', 'x'], ['req', 'x'], ['cover', 'R1', 'test/a.test.js', 'x'], ['gate'], ['check'], ['state']]) {
     const r = rdapq(home, args, { env });
     assert.equal(r.code, 2, `${args[0]}: ${r.out}`);
     assert.match(r.err, /is not a project: its \.rdapq\/ is the RDAP-Q home/, args[0]);
@@ -444,4 +465,148 @@ test('memory ids are never reused, even when the random part collides', (t) => {
   assert.match(rdapq(root, ['memory', 'stats']).out, /project: 2 ACTIVE of 2/);
   assert.match(rdapq(root, ['memory', 'search', 'first']).out, new RegExp(ids[0]));
   assert.match(rdapq(root, ['memory', 'search', 'second']).out, new RegExp(ids[1]));
+});
+
+test('coverage: every requirement needs a cover that names a test touching the change', () => {
+  const root = fixture();
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, '--req', 'adds two numbers', '--req', 'adds zero']);
+  fix(root);
+  const first = rdapq(root, ['check']);
+  assert.match(first.out, /coverage fail\s+\[0\] 0\/2 covered; R1 uncovered; R2 uncovered \(required\)/);
+  assert.match(first.out, /^RDAP-Q gate: CONTINUE$/m);
+  assert.match(first.out, /coverage is fail/);
+  // cover refuses what it cannot see, so a wrong cover never costs a check round
+  assert.match(rdapq(root, ['cover', 'R1', 'src/add.js', 'adds']).err, /not a test file/);
+  assert.match(rdapq(root, ['cover', 'R1', 'test/add.test.js', 'nope']).err, /"nope" is not in test\/add\.test\.js/);
+  assert.match(rdapq(root, ['cover', 'R9', 'test/add.test.js', 'adds']).err, /no requirement R9; listed: R1, R2/);
+  assert.equal(rdapq(root, ['cover', 'r1', 'test/add.test.js', 'adds']).code, 0, 'ids are case-insensitive');
+  const half = rdapq(root, ['check']);
+  assert.match(half.out, /coverage partial\s+\[5\] 1\/2 covered; R2 uncovered/, 'the value is covered/total on the 0..10 scale');
+  assert.match(half.out, /coverage is partial/);
+  fs.appendFileSync(path.join(root, 'test', 'add.test.js'), "test('adds zero', () => assert.equal(add(0, 0), 0));\n");
+  rdapq(root, ['plan', '--add', 'test/add.test.js', '--why', 'a test for R2']);
+  assert.equal(rdapq(root, ['cover', 'R2', 'test/add.test.js', 'adds zero']).code, 0);
+  const full = rdapq(root, ['check']);
+  assert.match(full.out, /coverage pass\s+\[10\] 2\/2 requirements covered by tests that touch the change/);
+  assert.match(full.out, /^RDAP-Q gate: COMPLETE$/m);
+});
+
+test('a cover whose test neither changed nor imports a changed file does not count', () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, 'test', 'other.test.js'), "const test = require('node:test');\ntest('adds elsewhere', () => {});\n");
+  git(root, 'add', '-A');
+  git(root, 'commit', '-qm', 'other test');
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
+  fix(root);
+  assert.equal(rdapq(root, ['cover', 'R1', 'test/other.test.js', 'adds elsewhere']).code, 0, 'cover sees the text; only check knows the diff');
+  const c = rdapq(root, ['check']);
+  assert.match(c.out, /coverage fail .*test\/other\.test\.js neither changed nor imports a changed file/);
+});
+
+test('without requirements the gate asks for them; req adds one and invalidates the last check', () => {
+  const root = fixture();
+  const s = rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD]);
+  assert.match(s.out, /warning: no requirements listed; the gate needs at least one/);
+  fix(root);
+  const c = rdapq(root, ['check']);
+  assert.match(c.out, /coverage n\/a .*no requirements listed/);
+  assert.match(c.out, /coverage required: list each clause of the request/);
+  const r = rdapq(root, ['req', 'adds two numbers']);
+  assert.equal(r.code, 0, r.err);
+  assert.match(r.out, /^R1 added \(1 requirement\(s\)\)/);
+  assert.match(rdapq(root, ['gate']).out, /plan .* changed since the last check/);
+  assert.equal(rdapq(root, ['req', 'token=abcdef123456']).code, 2, 'a requirement is logged text, so secrets are refused');
+  cover(root);
+  assert.match(rdapq(root, ['check']).out, /^RDAP-Q gate: COMPLETE$/m);
+});
+
+test('check prints the verdict and logs it; gate reprints it without running anything', () => {
+  const root = fixture();
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
+  fix(root);
+  cover(root);
+  const c = rdapq(root, ['check']);
+  assert.equal(c.code, 0);
+  assert.match(c.out, /^check round 1: Q 10 \(omega\)/);
+  assert.match(c.out, /^RDAP-Q gate: COMPLETE$/m);
+  assert.match(c.out, /^Report exactly this terminal state: COMPLETE\.$/m);
+  assert.doesNotMatch(c.out, /next: run/, 'no second command is needed for the verdict');
+  assert.deepEqual(readLog(root).map((e) => e.kind), ['start', 'cover', 'check', 'gate']);
+  const g = rdapq(root, ['gate']);
+  assert.equal(g.code, 0);
+  assert.deepEqual(readLog(root).map((e) => e.kind), ['start', 'cover', 'check', 'gate', 'gate']);
+});
+
+test('the log keeps each round for the record: task, patch, diff stats, command times, refused stops', () => {
+  const root = fixture();
+  const s = rdapq(root, ['start', '--risk', 'LOW', '--task', 'make add add', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
+  assert.match(s.out, /^started T-\d{8}-[0-9a-f]{4}: risk LOW/);
+  fs.writeFileSync(path.join(root, 'notes.txt'), 'untracked\n');
+  fix(root);
+  cover(root);
+  rdapq(root, ['check']);
+  const log = readLog(root);
+  assert.equal(log[0].task, 'make add add');
+  const check = log.find((e) => e.kind === 'check');
+  assert.deepEqual(check.diff, { patch: 'rounds/1.patch', files: 2, insertions: 2, deletions: 1 });
+  assert.equal(check.commands.length, 1);
+  assert.equal(check.commands[0].code, 0);
+  assert.ok(check.commands[0].ms >= 0 && check.ms >= check.commands[0].ms);
+  assert.equal(check.band, 'mixed');
+  const patch = fs.readFileSync(path.join(root, '.rdapq', 'rounds', '1.patch'), 'utf8');
+  assert.match(patch, /^\+module\.exports = \(a, b\) => a \+ b;$/m);
+  assert.match(patch, /^\+untracked$/m, 'untracked files are in the patch too');
+  fs.appendFileSync(path.join(root, 'src', 'add.js'), '// edit after the check\n');
+  const hook = spawnSync(process.execPath, [TOOL, 'hook-stop'], { cwd: root, input: JSON.stringify({ cwd: root }), encoding: 'utf8' });
+  assert.equal(JSON.parse(hook.stdout).decision, 'block');
+  const stop = readLog(root).find((e) => e.kind === 'stop');
+  assert.equal(stop.blocked, true);
+  assert.match(stop.reasons.join(' '), /changed since the last check/);
+});
+
+test('a new start archives the whole previous task: log, plan, and patches', () => {
+  const root = fixture();
+  rdapq(root, ['start', '--risk', 'LOW', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
+  fix(root);
+  rdapq(root, ['check']);
+  git(root, 'commit', '-qam', 'fix');
+  const again = rdapq(root, ['start', '--risk', 'LOW', '--files', 'README.md', '--run', TEST_CMD, '--req', 'docs']);
+  assert.match(again.out, /previous task archived to \.rdapq\/archive\/[\dTZ-]+\//);
+  const archive = path.join(root, '.rdapq', 'archive');
+  const [stamp] = fs.readdirSync(archive);
+  assert.deepEqual(fs.readdirSync(path.join(archive, stamp)).sort(), ['oracles.json', 'rounds', 'state.jsonl']);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(archive, stamp, 'oracles.json'), 'utf8')).files[0], 'src/add.js');
+  assert.ok(fs.existsSync(path.join(archive, stamp, 'rounds', '1.patch')));
+  assert.equal(fs.existsSync(path.join(root, '.rdapq', 'rounds')), false, 'the new task starts with no patches');
+});
+
+test('start recalls memory that matches the task or its files; memory added during a task names it', () => {
+  const root = fixture();
+  const add = (fact) => rdapq(root, ['memory', 'add', '--class', 'OBSERVED', '--fact', fact, '--evidence', 'e']);
+  assert.equal(add('add.js exports one function; keep the signature').code, 0);
+  assert.equal(add('the deploy script wants a vault approle').code, 0);
+  const s = rdapq(root, ['start', '--risk', 'LOW', '--task', 'fix the add function', '--files', 'src/add.js', '--run', TEST_CMD, ...REQ]);
+  assert.match(s.out, /memory \(1 matching, `memory search <terms>` for more\):/);
+  assert.match(s.out, /add\.js exports one function/);
+  assert.doesNotMatch(s.out, /deploy script/);
+  const during = add('learned during the task');
+  assert.equal(during.code, 0, during.err);
+  const dir = path.join(root, '.home', 'projects');
+  const records = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0], 'records.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  assert.deepEqual(records.map((r) => (r.task ? 'task' : null)), [null, null, 'task']);
+  assert.match(records[2].task, /^T-\d{8}-[0-9a-f]{4}$/);
+});
+
+test('protocol prints the constants the docs are rendered from, with both ends of every scale named', () => {
+  const root = fixture();
+  const p = JSON.parse(rdapq(root, ['protocol', '--json']).out);
+  assert.deepEqual(p.required.LOW, ['runtime', 'repo', 'coverage']);
+  assert.deepEqual(p.required.CRITICAL, ['runtime', 'repo', 'coverage', 'repro', 'external']);
+  assert.equal(Object.values(p.weights).reduce((a, b) => a + b, 0), 100);
+  assert.deepEqual(p.scales.Q[0], [10, 'omega', 'every measured oracle passed']);
+  assert.deepEqual(p.scales.Q[p.scales.Q.length - 1].slice(0, 2), [0, 'alpha']);
+  assert.deepEqual(p.terminal, ['COMPLETE', 'STALLED', 'BLOCKED', 'MISSING_TEST', 'UNCLEAR_TASK']);
+  const text = rdapq(root, ['protocol']).out;
+  assert.match(text, /Q, the weighted mean, 0-10: 10 omega \(every measured oracle passed\); 8\+ strong .*; 0 alpha \(no measured oracle passed\)/);
+  assert.match(text, /memory confidence, 0-10: 10 primary source read, and reproduced; .*; 0 a guess/);
 });

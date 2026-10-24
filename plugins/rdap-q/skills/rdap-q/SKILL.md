@@ -5,7 +5,7 @@ disable-model-invocation: true
 ---
 # RDAP-Q 2.0.0
 
-RDAP-Q makes "done" something a tool measures, not something you claim. You plan the change, `tool/rdapq.js` runs the checks, and its `gate` command names the result. Follow this for the current task only.
+RDAP-Q makes "done" something a tool measures, not something you claim. You plan the change, `tool/rdapq.js` runs the checks, and its verdict names the result. Follow this for the current task only.
 
 ## The tool
 
@@ -14,35 +14,48 @@ RDAP-Q makes "done" something a tool measures, not something you claim. You plan
 ## The loop
 
 1. **Look first.** Run `git status`. Read the code you will change and the tests that cover it. Never invent paths, APIs, versions, flags, or commands.
-2. **Recall.** `T memory search <two or three keywords>` shows at most 12 relevant records. Current evidence beats memory.
-3. **Start.** Choose the risk: LOW (local, easy to revert), MODERATE (shared code or a behavior change), HIGH (persistence, security, public API, concurrency), CRITICAL (money, auth, destructive operations, migrations).
+2. **Start.** Choose the risk: LOW (local, easy to revert), MODERATE (shared code or a behavior change), HIGH (persistence, security, public API, concurrency), CRITICAL (money, auth, destructive operations, migrations). Split the request into requirements, one `--req` per testable clause, including the ones that are easy to skip: errors, empty input, boundaries.
 
    ```
-   T start --risk LOW --files src/a.js,test/a.test.js --run "npm test"
+   T start --risk LOW --task "<the request in one line>" \
+     --req "empty input returns []" --req "a quoted field may contain commas" \
+     --files src/a.js,test/a.test.js --run "npm test"
    ```
 
-   - `--files`: every file you intend to change, including tests you will add.
-   - `--run`: each command that must pass; repeat the flag for several. Use the repository's real test command.
+   - `--files`: every file you intend to change, tests included. `--run`: each command that must pass (repeat the flag); use the repository's real test command.
    - Fixing a bug: add `--repro "<command that fails now>"`, then run `T check --before` before editing source. Nothing broken: add `--no-defect`.
-   - Run `start` once per task; a new `start` archives the previous task's log. To change the plan mid-task, use `T plan`.
-4. **Implement** the smallest change that does the job. Add or update a test that exercises it: runtime only passes when a changed test, or a test that imports a changed file, exists and the commands pass. Make sure your `--run` command actually runs that test.
-5. **Check.** `T check` runs the commands and scores the oracles. If the plan changed, run `T plan --add <files> --why "<reason>"` first.
-6. **Gate.** `T gate`. On CONTINUE, fix the first reason it prints and check again. `check` refuses a fourth round, and the same failure twice ends as STALLED.
-7. **Report** the terminal state exactly as `gate` printed it, with its reasons. Never say COMPLETE unless `gate` printed COMPLETE.
+   - `start` prints the memory records that match the task; `T memory search <terms>` finds more. Current evidence beats memory.
+   - Run `start` once per task. Mid-task, `T plan --add <files> --why "<reason>"` changes the files and `T req "<clause>"` adds a requirement.
+3. **Implement** the smallest change that does the job, with a test for each requirement. runtime passes only when a changed test, or a test that imports a changed file, exists and the commands pass.
+4. **Cover.** `T cover R1 test/a.test.js "<text that names the test>"` for each requirement. The file must be a test that contains the text. coverage passes only when every requirement is covered by a test that touches the change.
+5. **Check.** `T check` runs the commands, scores the oracles, and prints the verdict. On CONTINUE, fix the first reason and check again. `check` refuses a fourth round; the same failure twice ends as STALLED. `T gate` reprints the verdict without running anything.
+6. **Report** the terminal state exactly as printed, with its reasons. Never say COMPLETE unless `gate` printed COMPLETE.
+
+```mermaid
+stateDiagram-v2
+  [*] --> CONTINUE: start
+  CONTINUE --> CONTINUE: check, a new failure, round < 3
+  CONTINUE --> COMPLETE: check, every required oracle passes
+  CONTINUE --> STALLED: same failure twice, or round 3 without COMPLETE
+  CONTINUE --> BLOCKED: note blocker
+  CONTINUE --> MISSING_TEST: no --run command
+  CONTINUE --> UNCLEAR_TASK: round 3 with no planned files
+```
 
 ## What the tool measures
 
-| Oracle | Pass when |
-| --- | --- |
-| runtime | every `--run` command exits 0, and a test changed or imports a changed file |
-| repo | the diff touches exactly the planned files |
-| repro | the repro failed before the fix and passes after it |
-| external | every external claim you recorded is verified (not applicable if you recorded none) |
-| claims | share of recorded claims that are verified (reported, not required) |
+| Oracle | Weight | Pass when |
+| --- | --- | --- |
+| runtime | 30 | every `--run` command exits 0, and a test changed or imports a changed file |
+| repo | 20 | the diff touches exactly the planned files |
+| coverage | 20 | every requirement is covered by a test that touches the change; value is covered/total |
+| repro | 10 | the repro failed before the fix and passes after it |
+| external | 10 | every external claim you recorded is verified (not applicable if none) |
+| claims | 10 | share of recorded claims that are verified (reported, not required) |
 
-Required to complete: LOW and MODERATE need runtime and repo. HIGH adds repro, unless you started with `--no-defect`. CRITICAL also requires every external claim to be verified, so record each outside fact the change relies on. Any failing oracle blocks COMPLETE.
+Required: LOW and MODERATE need runtime, repo, coverage. HIGH adds repro, unless you started with `--no-defect`. CRITICAL also needs every external claim verified, so record each outside fact the change relies on. Any failing oracle blocks COMPLETE.
 
-Terminal states: COMPLETE, STALLED (same failure twice, or rounds used up), BLOCKED, MISSING_TEST (no `--run` command), UNCLEAR_TASK (not started, or no planned files by the round cap). CONTINUE is not terminal.
+Scores run 0 to 10: an oracle is pass 10, partial 5, fail 0. Q is their weighted mean: 10 omega (every measured oracle passed), 8+ strong, 5+ mixed, under 5 weak, 0 alpha (nothing passed). Q informs; the gate decides. `T protocol` prints every scale.
 
 ## Claims, notes, blockers
 
@@ -56,13 +69,13 @@ Default is lean: the loop above. Use full when the user asks for it, when `.rdap
 
 ## Memory
 
-Store only facts that are durable, reusable, and verified, never secrets:
+Store durable, reusable, verified facts, never secrets or task progress:
 
 ```
 T memory add --class OBSERVED --fact "<one line>" --evidence "<file, command, or URL>"
 ```
 
-Classes: USER_SPECIFIED, OBSERVED, VERIFIED_EXTERNAL, INFERRED. When a record proves wrong, run `T memory stale <id>`. Do not store task progress; the task log holds that.
+Classes: USER_SPECIFIED, OBSERVED, VERIFIED_EXTERNAL, INFERRED. When a record proves wrong, run `T memory stale <id>`.
 
 ## Rules
 

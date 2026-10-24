@@ -6,9 +6,12 @@
  * computes the oracles, and names the terminal state. Zero dependencies so
  * it runs from any installed skill tree with plain `node`.
  *
- * Task files, relative to the repository root:
- *   .rdapq/oracles.json   what "done" means for this task (written by start/plan)
- *   .rdapq/state.jsonl    append-only log: start, plan, check, claim, note, gate
+ * Task files, relative to the repository root. The model never reads them;
+ * only the tool does, so they can be rich at no token cost:
+ *   .rdapq/oracles.json       what "done" means: risk, task, requirements, files, commands (start/plan/req)
+ *   .rdapq/state.jsonl        append-only log: start, plan, req, cover, check, gate, claim, note, stop
+ *   .rdapq/rounds/<n>.patch   the exact diff each check round measured
+ *   .rdapq/archive/<time>/    the previous task's files, moved there by the next start
  *
  * Memory lives under $RDAPQ_HOME (default ~/.rdapq), one record per line.
  */
@@ -22,14 +25,34 @@ const { spawnSync } = require('child_process');
 const RISKS = ['LOW', 'MODERATE', 'HIGH', 'CRITICAL'];
 const DEPTHS = ['lean', 'full'];
 const REQUIRED = {
-  LOW: ['runtime', 'repo'],
-  MODERATE: ['runtime', 'repo'],
-  HIGH: ['runtime', 'repo', 'repro'],
-  CRITICAL: ['runtime', 'repo', 'repro', 'external'],
+  LOW: ['runtime', 'repo', 'coverage'],
+  MODERATE: ['runtime', 'repo', 'coverage'],
+  HIGH: ['runtime', 'repo', 'coverage', 'repro'],
+  CRITICAL: ['runtime', 'repo', 'coverage', 'repro', 'external'],
 };
-const WEIGHTS = { runtime: 35, repo: 25, external: 15, claims: 15, repro: 10 };
+const WEIGHTS = { runtime: 30, repo: 20, coverage: 20, repro: 10, external: 10, claims: 10 };
 const SCORE = { pass: 10, partial: 5, fail: 0 };
+const TERMINAL = ['COMPLETE', 'STALLED', 'BLOCKED', 'MISSING_TEST', 'UNCLEAR_TASK'];
+/**
+ * Every score runs 0..10 and both ends are named, so no number is read without
+ * its meaning: 0 is alpha (nothing proven), 10 is omega (nothing left to prove).
+ */
+const SCALES = {
+  oracle: { 10: 'pass: the evidence is complete', 5: 'partial: it ran, but the evidence is incomplete', 0: 'fail' },
+  // Q bands, highest first: [floor, name, meaning]. Q informs; the gate decides.
+  Q: [
+    [10, 'omega', 'every measured oracle passed'],
+    [8, 'strong', 'passes, with light evidence missing'],
+    [5, 'mixed', 'a failing oracle, or several partial ones'],
+    [0.1, 'weak', 'the main oracles failed'],
+    [0, 'alpha', 'no measured oracle passed'],
+  ],
+  confidence: { 0: 'a guess', 3: 'one unverified source', 5: 'observed once', 8: 'observed and reproduced', 10: 'primary source read, and reproduced' },
+};
 const MAX_ROUNDS = 3;
+const TASK_CAP = 500;
+const REQ_CAP = 200;
+const PATCH_CAP = 512 * 1024;
 const NOTE_TYPES = ['assumption', 'decision', 'risk', 'blocker', 'question'];
 const GENERATED = /(^|\/)(package-lock\.json|npm-shrinkwrap\.json|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|poetry\.lock|go\.sum)$|(^|\/)(dist|build|coverage)\//;
 const TEST_FILE = /(^|\/)(test|tests|__tests__|spec)\/|\.(test|spec)\.[cm]?[jt]sx?$|(^|\/)test_[^/]*\.py$|_test\.(py|go)$/;
@@ -50,15 +73,22 @@ class UsageError extends Error {}
 function run(command, cwd, timeoutMs = 10 * 60 * 1000) {
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
+  const began = Date.now();
   const r = spawnSync(command, { cwd, shell: true, encoding: 'utf8', timeout: timeoutMs, env, maxBuffer: 64 * 1024 * 1024 });
   const output = `${r.stdout || ''}\n${r.stderr || ''}`;
-  return { code: r.status === null ? 124 : r.status, output };
+  return { code: r.status === null ? 124 : r.status, output, ms: Date.now() - began };
 }
 
 function git(root, args) {
   // quotePath=false: non-ASCII names come back as-is instead of "caf\303\251.js".
   const r = spawnSync('git', ['-c', 'core.quotePath=false', ...args], { cwd: root, encoding: 'utf8' });
   return r.status === 0 ? r.stdout : null;
+}
+
+/** Like git(), but keeps stdout whatever the exit status: `diff --no-index` exits 1 on differences. */
+function gitAny(root, args) {
+  const r = spawnSync('git', ['-c', 'core.quotePath=false', ...args], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+  return r.error ? null : r.stdout || '';
 }
 
 function repoRoot(cwd) {
@@ -68,7 +98,12 @@ function repoRoot(cwd) {
 
 function taskPaths(root) {
   const dir = path.join(root, '.rdapq');
-  return { dir, oracles: path.join(dir, 'oracles.json'), log: path.join(dir, 'state.jsonl') };
+  return { dir, oracles: path.join(dir, 'oracles.json'), log: path.join(dir, 'state.jsonl'), rounds: path.join(dir, 'rounds'), archive: path.join(dir, 'archive') };
+}
+
+function writeSpec(root, spec) {
+  fs.mkdirSync(taskPaths(root).dir, { recursive: true });
+  fs.writeFileSync(taskPaths(root).oracles, `${JSON.stringify(spec, null, 2)}\n`);
 }
 
 function samePath(a, b) {
@@ -84,7 +119,7 @@ function samePath(a, b) {
 }
 
 // Commands that keep their state in <repo>/.rdapq/.
-const TASK_COMMANDS = new Set(['start', 'plan', 'check', 'gate', 'claim', 'note', 'state']);
+const TASK_COMMANDS = new Set(['start', 'plan', 'req', 'cover', 'check', 'gate', 'claim', 'note', 'state']);
 
 /**
  * Run from the home directory, <repo>/.rdapq/ would be $RDAPQ_HOME itself
@@ -147,7 +182,7 @@ function normalizePath(p) {
 }
 
 function specHash(spec) {
-  const key = JSON.stringify([spec.risk, spec.run, spec.repro, spec.defect, [...spec.files].sort()]);
+  const key = JSON.stringify([spec.risk, spec.run, spec.repro, spec.defect, [...spec.files].sort(), (spec.reqs || []).map((r) => `${r.id} ${r.text}`)]);
   return crypto.createHash('sha256').update(key).digest('hex').slice(0, 12);
 }
 
@@ -214,6 +249,32 @@ function fingerprint(root, base) {
   return hash.digest('hex').slice(0, 16);
 }
 
+/**
+ * The change itself, for the record: `git diff <base>` plus each untracked
+ * file as a diff against nothing, written to .rdapq/rounds/<round>.patch. It is
+ * never printed, so it costs the model nothing, and a reviewer or a training
+ * set still gets the exact patch each verdict was about.
+ */
+function recordPatch(root, base, changed, round) {
+  if (!base || !changed) return null;
+  const parts = [gitAny(root, ['diff', base, '--', '.', ':(exclude).rdapq']) || ''];
+  const tracked = new Set((git(root, ['ls-files']) || '').split('\n'));
+  for (const f of changed) {
+    if (!tracked.has(f)) parts.push(gitAny(root, ['diff', '--no-index', '--', '/dev/null', f]) || '');
+  }
+  let text = parts.filter(Boolean).join('');
+  if (text.length > PATCH_CAP) text = `${text.slice(0, PATCH_CAP)}\n... truncated at ${PATCH_CAP} bytes\n`;
+  const { rounds } = taskPaths(root);
+  fs.mkdirSync(rounds, { recursive: true });
+  fs.writeFileSync(path.join(rounds, `${round}.patch`), text);
+  const stat = { patch: `rounds/${round}.patch`, files: changed.length, insertions: 0, deletions: 0 };
+  for (const line of text.split('\n')) {
+    if (/^\+(?!\+\+ )/.test(line)) stat.insertions += 1;
+    else if (/^-(?!-- )/.test(line)) stat.deletions += 1;
+  }
+  return stat;
+}
+
 function allTestFiles(root) {
   const tracked = git(root, ['ls-files']) || '';
   const untracked = git(root, ['ls-files', '--others', '--exclude-standard']) || '';
@@ -222,17 +283,21 @@ function allTestFiles(root) {
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+const isSource = (f) => !isTest(f) && /\.[cm]?[jt]sx?$|\.py$/.test(f);
+
 /**
- * At least one test file changed, or a test file imports a changed source
- * file by its path (JS/TS relative import, or a Python dotted module). Whether
- * the required command executes that test is not observed; the import is the proxy.
+ * Every test file that is part of the change: it changed, or it imports a
+ * changed source file by its path (JS/TS relative import, or a Python dotted
+ * module). Whether the required command executes that test is not observed;
+ * the import is the proxy. Map of test file -> how it touches the change.
  */
-function touchesChange(root, changed) {
-  const tests = changed.filter(isTest);
-  if (tests.length) return { touches: true, via: `changed test ${tests[0]}` };
-  const sources = changed.filter((f) => !isTest(f) && /\.[cm]?[jt]sx?$|\.py$/.test(f));
-  if (!sources.length) return { touches: false, via: 'no changed source file a test could import' };
+function touchingTests(root, changed) {
+  const via = new Map();
+  for (const t of changed.filter(isTest)) via.set(t, `changed test ${t}`);
+  const sources = changed.filter(isSource);
+  if (!sources.length) return via;
   for (const t of allTestFiles(root)) {
+    if (via.has(t)) continue;
     let text;
     try {
       text = fs.readFileSync(path.join(root, t), 'utf8');
@@ -246,15 +311,26 @@ function touchesChange(root, changed) {
       const js = new RegExp(`(require\\(|import\\b|from\\b)[^\\n]*['"\`]${escapeRe(rel)}(\\.[cm]?[jt]sx?)?(/index(\\.[cm]?[jt]sx?)?)?['"\`]`);
       const dotted = noExt.replace(/\//g, '.').replace(/^src\./, '');
       const py = src.endsWith('.py') && new RegExp(`^\\s*(from\\s+(\\w+\\.)*${escapeRe(dotted.split('.').pop())}\\s+import|import\\s+[\\w.]*${escapeRe(dotted)}\\b|from\\s+[\\w.]*${escapeRe(dotted)}\\s+import)`, 'm');
-      if (js.test(text) || (py && py.test(text))) return { touches: true, via: `${t} imports ${src}` };
+      if (js.test(text) || (py && py.test(text))) {
+        via.set(t, `${t} imports ${src}`);
+        break;
+      }
     }
   }
-  return { touches: false, via: 'no test file imports a changed source file' };
+  return via;
 }
 
-function runtimeOracle(root, spec, changed) {
-  if (!spec.run.length) return { observed: null, detail: 'no required command; pass --run to start' };
+function touchesChange(changed, touching) {
+  if (!touching) return { touches: false, via: 'no git base' };
+  const first = touching.values().next().value;
+  if (first) return { touches: true, via: first };
+  return { touches: false, via: changed.some(isSource) ? 'no test file imports a changed source file' : 'no changed source file a test could import' };
+}
+
+function runtimeOracle(root, spec, changed, touching) {
+  if (!spec.run.length) return { observed: null, detail: 'no required command; pass --run to start', commands: [] };
   const results = spec.run.map((cmd) => ({ cmd, ...run(cmd, root) }));
+  const commands = results.map((r) => ({ cmd: r.cmd, code: r.code, ms: r.ms }));
   const failed = results.find((r) => r.code !== 0);
   if (failed) {
     const line = firstFailureLine(failed.output);
@@ -263,12 +339,51 @@ function runtimeOracle(root, spec, changed) {
       detail: `${failed.cmd} exited ${failed.code}${line ? `: ${line}` : ''}`,
       oracle_id: `${failed.cmd} :: ${line || `exit ${failed.code}`}`,
       tail: failed.output.trim().split('\n').slice(-15).join('\n'),
+      commands,
     };
   }
-  const touch = changed ? touchesChange(root, changed) : { touches: false, via: 'no git base' };
+  const touch = touchesChange(changed || [], touching);
   return touch.touches
-    ? { observed: 'pass', detail: `${results.length} command(s) exit 0; ${touch.via}` }
-    : { observed: 'partial', detail: `${results.length} command(s) exit 0, but ${touch.via}` };
+    ? { observed: 'pass', detail: `${results.length} command(s) exit 0; ${touch.via}`, commands }
+    : { observed: 'partial', detail: `${results.length} command(s) exit 0, but ${touch.via}`, commands };
+}
+
+/**
+ * The gauntlet the tool can enforce: every requirement clause the task listed
+ * must be covered by a test that exists, names it, and touches the change.
+ * Value is covered/total on the 0..10 scale, so 10 means every clause has a test.
+ */
+function coverageOracle(root, spec, log, touching) {
+  const reqs = spec.reqs || [];
+  if (!reqs.length) return { observed: null, detail: 'no requirements listed (start --req, or req "<clause>")', unjustified: true };
+  const covers = new Map();
+  for (const e of log) if (e.kind === 'cover') covers.set(e.req, e);
+  const gaps = [];
+  let covered = 0;
+  for (const r of reqs) {
+    const c = covers.get(r.id);
+    if (!c) {
+      gaps.push(`${r.id} uncovered`);
+      continue;
+    }
+    let text = null;
+    try {
+      text = fs.readFileSync(path.join(root, c.file), 'utf8');
+    } catch {
+      // missing file: reported below
+    }
+    if (text === null || !text.includes(c.text)) gaps.push(`${r.id}: "${c.text}" is not in ${c.file}`);
+    else if (!touching || !touching.has(c.file)) gaps.push(`${r.id}: ${c.file} neither changed nor imports a changed file`);
+    else covered += 1;
+  }
+  const value = Math.round((10 * covered) / reqs.length);
+  if (!gaps.length) return { observed: 'pass', value, detail: `${covered}/${reqs.length} requirements covered by tests that touch the change` };
+  const shown = gaps.slice(0, 3);
+  if (gaps.length > 3) shown.push(`${gaps.length - 3} more`);
+  const detail = `${covered}/${reqs.length} covered; ${shown.join('; ')}`;
+  return covered
+    ? { observed: 'partial', value, detail }
+    : { observed: 'fail', value, detail, oracle_id: `coverage :: ${gaps.join('; ')}` };
 }
 
 function repoOracle(spec, changed) {
@@ -336,6 +451,11 @@ function quality(oracles) {
   return den ? Math.round((num / den) * 10) / 10 : 'UNMEASURED';
 }
 
+function qBand(Q) {
+  if (typeof Q !== 'number') return 'unmeasured';
+  return SCALES.Q.find(([floor]) => Q >= floor)[1];
+}
+
 // ---------------------------------------------------------------- commands
 
 function requireSpec(root) {
@@ -344,8 +464,37 @@ function requireSpec(root) {
   return spec;
 }
 
-function cmdStart(root, argv, out) {
-  const f = parseFlags(argv, ['run']);
+/**
+ * Memory the task is likely to need, found from its own words: planned file
+ * names (strong signal) and words of the task and its requirements. Printed by
+ * start so recall costs no extra turn; `memory search` still finds more.
+ */
+const STOP_WORDS = new Set(['about', 'after', 'before', 'should', 'there', 'their', 'these', 'those', 'which', 'while', 'where', 'would', 'could', 'return', 'returns', 'input', 'output', 'value', 'values', 'field', 'fields', 'string', 'strings', 'array', 'function', 'method', 'change', 'changes', 'update', 'updates', 'using', 'without', 'every', 'other', 'tests', 'files', 'error', 'errors', 'empty', 'returned', 'instead', 'always', 'never', 'exactly', 'within', 'between', 'through']);
+
+function recall(home, root, spec) {
+  const names = spec.files.map((p) => path.posix.basename(p).replace(/\.[^.]*$/, '').toLowerCase()).filter((b) => b.length >= 3 && !/^(index|test|spec|main|utils?|lib)$/.test(b));
+  const words = [...new Set(norm(`${spec.task || ''} ${(spec.reqs || []).map((r) => r.text).join(' ')}`).split(/[^a-z0-9_-]+/).filter((w) => w.length >= 5 && !STOP_WORDS.has(w)))];
+  if (!names.length && !words.length) return [];
+  return ['project', 'global']
+    .flatMap((s) => loadMemory(memoryFile(home, s, root)))
+    .filter((r) => r.status === 'ACTIVE')
+    .map((r) => {
+      const hay = norm(`${r.fact} ${r.evidence} ${(r.tags || []).join(' ')}`);
+      return { r, score: names.filter((b) => hay.includes(b)).length * 2 + words.filter((w) => hay.includes(w)).length };
+    })
+    .filter((x) => x.score >= 2)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((x) => x.r);
+}
+
+function newTaskId() {
+  const day = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  return `T-${day}-${crypto.randomBytes(2).toString('hex')}`;
+}
+
+function cmdStart(root, argv, out, env) {
+  const f = parseFlags(argv, ['run', 'req']);
   const risk = String(f.risk || '').toUpperCase();
   if (!RISKS.includes(risk)) throw new UsageError(`start needs --risk ${RISKS.join('|')}`);
   const depthFile = path.join(taskPaths(root).dir, 'depth');
@@ -364,33 +513,88 @@ function cmdStart(root, argv, out) {
       : `${root} is not inside a git repository. Run start from the root of the repository you are changing; RDAP-Q compares the change against its last commit.`);
   }
   const existing = fs.existsSync(oracles) ? readJson(oracles) : null;
+  const keep = Boolean(f.keep && existing);
+  const task = typeof f.task === 'string' ? f.task.trim().slice(0, TASK_CAP) : keep && existing.task ? existing.task : '';
+  const given = (f.req || []).filter((r) => typeof r === 'string' && r.trim());
+  const reqs = given.length || !keep ? given.map((text, i) => ({ id: `R${i + 1}`, text: text.trim().slice(0, REQ_CAP) })) : existing.reqs || [];
+  if (SECRET.test(task) || reqs.some((r) => SECRET.test(r.text))) throw new UsageError('refusing to log something that looks like a secret');
   // A new task gets a fresh log and base; --keep re-defines the current task instead.
+  // The previous task moves whole (log, plan, patches) so it stays one record.
   if (existing && !f.keep && fs.existsSync(log)) {
-    const archive = path.join(dir, 'archive');
-    fs.mkdirSync(archive, { recursive: true });
-    fs.renameSync(log, path.join(archive, `${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`));
-    out('previous task log archived to .rdapq/archive/ (pass --keep to amend the current task instead)');
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const into = path.join(taskPaths(root).archive, stamp);
+    fs.mkdirSync(into, { recursive: true });
+    for (const name of ['state.jsonl', 'oracles.json', 'rounds']) {
+      if (fs.existsSync(path.join(dir, name))) fs.renameSync(path.join(dir, name), path.join(into, name));
+    }
+    out(`previous task archived to .rdapq/archive/${stamp}/ (pass --keep to amend the current task instead)`);
   }
   const spec = {
     version: 2,
+    id: keep && existing.id ? existing.id : newTaskId(),
     risk,
     depth,
-    base: f.keep && existing && existing.base ? existing.base : head.trim(),
+    task,
+    reqs,
+    base: keep && existing.base ? existing.base : head.trim(),
     files: list(f.files).map(normalizePath).filter(Boolean),
     run: (f.run || []).filter((r) => r !== true).map(String),
     repro: typeof f.repro === 'string' ? f.repro : null,
     defect: f['no-defect'] ? false : Boolean(f.repro) || null,
   };
-  fs.mkdirSync(taskPaths(root).dir, { recursive: true });
-  fs.writeFileSync(taskPaths(root).oracles, `${JSON.stringify(spec, null, 2)}\n`);
+  writeSpec(root, spec);
   append(root, { kind: 'start', ...spec });
-  out(`started: risk ${risk}, depth ${depth}, required oracles ${REQUIRED[risk].join(', ')}`);
+  out(`started ${spec.id}: risk ${risk}, depth ${depth}, required oracles ${REQUIRED[risk].join(', ')}`);
   out(`planned files: ${spec.files.join(', ') || '(none yet)'}`);
   out(`required commands: ${spec.run.join(' && ') || '(none: gate will say MISSING_TEST)'}`);
+  out(reqs.length
+    ? `requirements: ${reqs.length} (${reqs.map((r) => r.id).join(' ')}); after writing the tests, cover each: \`cover R1 <test-file> "<test name>"\``
+    : 'warning: no requirements listed; the gate needs at least one. Add each clause of the request: `req "<clause>"`');
   if (spec.repro) out(`repro: ${spec.repro} (run \`check --before\` now, before fixing)`);
   if (REQUIRED[risk].includes('repro') && !spec.repro && spec.defect !== false) {
     out('warning: this risk requires repro; pass --repro <command>, or --no-defect when nothing is broken');
   }
+  const hits = recall(memoryHome(env), root, spec);
+  if (hits.length) {
+    out(`memory (${hits.length} matching, \`memory search <terms>\` for more):`);
+    for (const r of hits) out(`  ${r.id} [${r.class}] ${r.fact} — ${r.evidence}`);
+  }
+  return 0;
+}
+
+function cmdReq(root, argv, out) {
+  const spec = requireSpec(root);
+  const text = argv.join(' ').trim().slice(0, REQ_CAP);
+  if (!text) throw new UsageError('req needs text: req "<one testable clause of the request>"');
+  if (SECRET.test(text)) throw new UsageError('refusing to log something that looks like a secret');
+  spec.reqs = spec.reqs || [];
+  const id = `R${spec.reqs.length + 1}`;
+  spec.reqs.push({ id, text });
+  writeSpec(root, spec);
+  append(root, { kind: 'req', id, text });
+  out(`${id} added (${spec.reqs.length} requirement(s)); cover it with \`cover ${id} <test-file> "<test name>"\``);
+  return 0;
+}
+
+/** A cover is checked now, so a wrong one costs no check round; check verifies it again. */
+function cmdCover(root, argv, out) {
+  const spec = requireSpec(root);
+  const [id, fileArg, ...rest] = argv;
+  const text = rest.join(' ').trim();
+  if (!id || !fileArg || !text) throw new UsageError('cover needs: cover <R-id> <test-file> "<text that names the test>"');
+  const req = (spec.reqs || []).find((r) => r.id === String(id).toUpperCase());
+  if (!req) throw new UsageError(`no requirement ${id}; listed: ${(spec.reqs || []).map((r) => r.id).join(', ') || 'none'}`);
+  const file = normalizePath(fileArg);
+  if (!isTest(file)) throw new UsageError(`${file} is not a test file`);
+  let content;
+  try {
+    content = fs.readFileSync(path.join(root, file), 'utf8');
+  } catch {
+    throw new UsageError(`${file} does not exist; write the test first`);
+  }
+  if (!content.includes(text)) throw new UsageError(`"${text}" is not in ${file}; name text that is in the test`);
+  append(root, { kind: 'cover', req: req.id, file, text: text.slice(0, REQ_CAP) });
+  out(`${req.id} covered by ${file}`);
   return 0;
 }
 
@@ -402,7 +606,7 @@ function cmdPlan(root, argv, out) {
   const add = list(f.add).map(normalizePath).filter(Boolean);
   const drop = list(f.drop).map(normalizePath).filter(Boolean);
   spec.files = [...new Set([...spec.files.filter((x) => !drop.includes(x)), ...add])];
-  fs.writeFileSync(taskPaths(root).oracles, `${JSON.stringify(spec, null, 2)}\n`);
+  writeSpec(root, spec);
   append(root, { kind: 'plan', add, drop, why });
   out(`planned files: ${spec.files.join(', ')}`);
   return 0;
@@ -435,10 +639,13 @@ function cmdCheck(root, argv, out) {
   if (prior >= MAX_ROUNDS) {
     throw new UsageError(`all ${MAX_ROUNDS} rounds are used; run \`gate\` and report its verdict`);
   }
+  const began = Date.now();
   const changed = changedFiles(root, spec.base);
+  const touching = changed ? touchingTests(root, changed) : null;
   const oracles = {
-    runtime: runtimeOracle(root, spec, changed),
+    runtime: runtimeOracle(root, spec, changed, touching),
     repo: repoOracle(spec, changed),
+    coverage: coverageOracle(root, spec, log, touching),
     repro: reproOracle(root, spec, log),
     ...claimOracles(log),
   };
@@ -446,11 +653,16 @@ function cmdCheck(root, argv, out) {
   const Q = quality(oracles);
   const failures = Object.values(oracles).filter((o) => o.oracle_id).map((o) => o.oracle_id);
   const stored = Object.fromEntries(Object.entries(oracles).map(([k, o]) => [k, { observed: o.observed ?? null, value: o.value, detail: o.detail, oracle_id: o.oracle_id }]));
-  append(root, { kind: 'check', round, Q, oracles: stored, failures, changed, fingerprint: fingerprint(root, spec.base), spec: specHash(spec) });
-  out(`check round ${round}: Q ${Q}`);
+  const diff = recordPatch(root, spec.base, changed, round);
+  append(root, { kind: 'check', round, Q, band: qBand(Q), oracles: stored, failures, changed, diff, commands: oracles.runtime.commands, ms: Date.now() - began, fingerprint: fingerprint(root, spec.base), spec: specHash(spec) });
+  out(`check round ${round}: Q ${Q} (${qBand(Q)})`);
   renderOracles(oracles, REQUIRED[spec.risk], out);
   if (oracles.runtime.tail) out(`\nlast output of the failing command:\n${oracles.runtime.tail}`);
-  out('\nnext: run `gate` to get the terminal state.');
+  // The verdict follows at once: a separate gate call would be one more turn for the same answer.
+  const result = decide(root);
+  append(root, { kind: 'gate', ...result });
+  out('');
+  renderGate(result, out);
   return 0;
 }
 
@@ -485,6 +697,10 @@ function decide(root) {
       if (spec.defect !== false) reasons.push('repro required: pass --repro <command>, or start --no-defect');
       continue;
     }
+    if (name === 'coverage' && v === null) {
+      reasons.push('coverage required: list each clause of the request with `req "<clause>"`, then cover each with a test');
+      continue;
+    }
     if (name === 'external' && v === null) continue; // null only when no external claim was recorded
     else if (v === null) reasons.push(`${name} did not run: ${o.detail}`);
     else if (o.observed && o.observed !== 'pass') reasons.push(`${name} is ${o.observed}: ${o.detail}`);
@@ -504,17 +720,20 @@ function decide(root) {
   return { verdict: 'CONTINUE', reasons, round: last.round, Q: last.Q };
 }
 
+function renderGate(result, out) {
+  out(`RDAP-Q gate: ${result.verdict}`);
+  for (const r of result.reasons) out(`  - ${r}`);
+  if (result.verdict === 'CONTINUE') out(`rounds used: ${result.round || 0}/${MAX_ROUNDS}. Fix the first reason, then check again.`);
+  else out(`Report exactly this terminal state: ${result.verdict}.`);
+}
+
+/** Re-reads the verdict `check` already printed. Runs nothing; for CI, hooks, and a second look. */
 function cmdGate(root, argv, out) {
   const f = parseFlags(argv);
   const result = decide(root);
   if (fs.existsSync(taskPaths(root).oracles)) append(root, { kind: 'gate', ...result });
   if (f.json) out(JSON.stringify(result));
-  else {
-    out(`RDAP-Q gate: ${result.verdict}`);
-    for (const r of result.reasons) out(`  - ${r}`);
-    if (result.verdict === 'CONTINUE') out(`rounds used: ${result.round || 0}/${MAX_ROUNDS}. Fix the first reason, then check again.`);
-    else out(`Report exactly this terminal state: ${result.verdict}.`);
-  }
+  else renderGate(result, out);
   return result.verdict in EXIT ? EXIT[result.verdict] : 1;
 }
 
@@ -553,10 +772,14 @@ function cmdState(root, argv, out) {
   const log = readLog(root);
   const checks = log.filter((e) => e.kind === 'check');
   out(`risk ${spec.risk}, depth ${spec.depth}, rounds ${checks.length}/${MAX_ROUNDS}, required ${REQUIRED[spec.risk].join(', ')}`);
+  if (spec.task) out(`task: ${spec.task}`);
   out(`planned files: ${spec.files.join(', ') || '(none)'}`);
+  const reqs = spec.reqs || [];
+  const covered = new Set(log.filter((e) => e.kind === 'cover').map((e) => e.req));
+  out(reqs.length ? `requirements: ${reqs.map((r) => (covered.has(r.id) ? r.id : `${r.id}?`)).join(' ')} (${covered.size}/${reqs.length} covered; ? = not yet)` : 'requirements: none listed');
   const last = checks[checks.length - 1];
   if (last) {
-    out(`last check: Q ${last.Q}`);
+    out(`last check: Q ${last.Q} (${qBand(last.Q)})`);
     renderOracles(last.oracles, REQUIRED[spec.risk], out);
   }
   const notes = log.filter((e) => e.kind === 'note').slice(-5);
@@ -578,11 +801,12 @@ function stateJson(root, spec) {
   const last = checks[checks.length - 1];
   return {
     task: true,
-    spec: { risk: spec.risk, depth: spec.depth, base: spec.base, files: spec.files, run: spec.run, repro: spec.repro, defect: spec.defect },
+    spec: { id: spec.id || null, risk: spec.risk, depth: spec.depth, task: spec.task || '', reqs: spec.reqs || [], base: spec.base, files: spec.files, run: spec.run, repro: spec.repro, defect: spec.defect },
     required: REQUIRED[spec.risk],
     rounds: checks.length,
     maxRounds: MAX_ROUNDS,
-    lastCheck: last ? { round: last.round, Q: last.Q, t: last.t, oracles: last.oracles, failures: last.failures, changed: last.changed } : null,
+    covers: log.filter((e) => e.kind === 'cover').map((c) => ({ req: c.req, file: c.file, text: c.text })),
+    lastCheck: last ? { round: last.round, Q: last.Q, band: qBand(last.Q), t: last.t, oracles: last.oracles, failures: last.failures, changed: last.changed, diff: last.diff || null } : null,
     notes: log.filter((e) => e.kind === 'note').slice(-5).map((n) => ({ type: n.type, text: n.text, t: n.t })),
     gate: decide(root),
   };
@@ -665,6 +889,7 @@ function cmdMemory(root, argv, out, env) {
       evidence,
       tags: list(f.tags),
       supersedes: typeof f.supersedes === 'string' ? f.supersedes : null,
+      task: activeTaskId(root),
     };
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.appendFileSync(file, `${JSON.stringify(rec)}\n`);
@@ -720,6 +945,16 @@ function cmdMemory(root, argv, out, env) {
   throw new UsageError('memory add|search|stale|stats|compact');
 }
 
+/** The task a memory record was learned in, when one is active here. Provenance only. */
+function activeTaskId(root) {
+  try {
+    const spec = readJson(taskPaths(root).oracles);
+    return spec && spec.id ? spec.id : null;
+  } catch {
+    return null;
+  }
+}
+
 function markMemory(home, root, id, status, by) {
   for (const scope of ['project', 'global']) {
     const file = memoryFile(home, scope, root);
@@ -747,11 +982,15 @@ function cmdExport(root, argv, out) {
     const log = readLog(repo);
     const checks = log.filter((e) => e.kind === 'check');
     const gate = log.filter((e) => e.kind === 'gate').pop();
+    const count = (kind) => log.filter((e) => e.kind === kind).length;
     const row = {
       repo: crypto.createHash('sha256').update(repo).digest('hex').slice(0, 12),
+      id: spec.id || null,
       exported: new Date().toISOString(),
       risk: spec.risk,
       depth: spec.depth,
+      task_chars: (spec.task || '').length,
+      reqs: (spec.reqs || []).length,
       planned_files: spec.files.length,
       commands: spec.run.length,
       repro: Boolean(spec.repro),
@@ -759,11 +998,17 @@ function cmdExport(root, argv, out) {
       checks: checks.map((c) => ({
         round: c.round,
         Q: c.Q,
+        band: c.band || qBand(c.Q),
         changed_files: (c.changed || []).length,
+        insertions: c.diff ? c.diff.insertions : null,
+        deletions: c.diff ? c.diff.deletions : null,
+        ms: c.ms ?? null,
         ...Object.fromEntries(Object.entries(c.oracles).map(([k, o]) => [k, o.observed ?? (typeof o.value === 'number' ? o.value : null)])),
       })),
-      claims: log.filter((e) => e.kind === 'claim').length,
-      notes: log.filter((e) => e.kind === 'note').length,
+      covers: count('cover'),
+      claims: count('claim'),
+      notes: count('note'),
+      stops: count('stop'),
       verdict: gate ? gate.verdict : null,
     };
     fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -799,6 +1044,13 @@ function hookStop(root, out, stdin) {
   if (!fs.existsSync(taskPaths(where).oracles)) return 0;
   const result = decide(where);
   if (result.verdict !== 'CONTINUE') return 0;
+  // A stop the gate refused is the most telling event in the log: the agent
+  // was about to report before the measurement agreed. Recorded, never shown.
+  try {
+    append(where, { kind: 'stop', blocked: true, reasons: result.reasons });
+  } catch {
+    // the hook must never fail on a logging problem
+  }
   const tool = path.relative(where, __filename) || __filename;
   out(JSON.stringify({
     decision: 'block',
@@ -807,27 +1059,64 @@ function hookStop(root, out, stdin) {
   return 0;
 }
 
+// ---------------------------------------------------------------- protocol
+
+/** The constants the protocol is made of, for docs and tests: one source, rendered elsewhere. */
+function protocol() {
+  return {
+    risks: RISKS,
+    required: REQUIRED,
+    weights: WEIGHTS,
+    scores: SCORE,
+    scales: SCALES,
+    maxRounds: MAX_ROUNDS,
+    terminal: TERMINAL,
+    notes: NOTE_TYPES,
+    memory: { classes: MEMORY_CLASSES, status: MEMORY_STATUS, caps: MEMORY_CAPS },
+  };
+}
+
+function cmdProtocol(root, argv, out) {
+  const f = parseFlags(argv);
+  if (f.json) {
+    out(JSON.stringify(protocol()));
+    return 0;
+  }
+  const floor = (x) => (x === 10 ? '10' : x === 0 ? '0' : `${x}+`);
+  out(`risks: ${RISKS.map((r) => `${r} needs ${REQUIRED[r].join(', ')}`).join('; ')}`);
+  out(`oracle weights: ${Object.entries(WEIGHTS).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+  out(`oracle score: ${Object.entries(SCALES.oracle).sort((a, b) => b[0] - a[0]).map(([k, v]) => `${k} ${v}`).join('; ')}`);
+  out(`Q, the weighted mean, 0-10: ${SCALES.Q.map(([x, name, meaning]) => `${floor(x)} ${name} (${meaning})`).join('; ')}`);
+  out(`memory confidence, 0-10: ${Object.entries(SCALES.confidence).sort((a, b) => b[0] - a[0]).map(([k, v]) => `${k} ${v}`).join('; ')}`);
+  out(`rounds: ${MAX_ROUNDS}; terminal states: ${TERMINAL.join(', ')}`);
+  return 0;
+}
+
 // ---------------------------------------------------------------- main
 
 const HELP = `RDAP-Q engine
 
-  start --risk LOW|MODERATE|HIGH|CRITICAL --files a,b --run "<cmd>" [--run "<cmd>"]
-        [--repro "<cmd>" | --no-defect] [--depth lean|full]
+  start --risk LOW|MODERATE|HIGH|CRITICAL --task "<request>" --req "<clause>" [--req ...]
+        --files a,b --run "<cmd>" [--run "<cmd>"] [--repro "<cmd>" | --no-defect] [--depth lean|full]
   plan --add a,b [--drop c] --why "<reason>"
-  check [--before]          run the oracles and log the result (--before: run the repro first)
-  gate [--json]             name the terminal state; exit 0 COMPLETE, 3 CONTINUE, 1 otherwise
+  req "<clause>"            add a requirement; cover <R-id> <test-file> "<test name>" covers one
+  check [--before]          run the oracles, log the round, print the verdict (--before: run the repro first)
+  gate [--json]             reprint the terminal state; exit 0 COMPLETE, 3 CONTINUE, 1 otherwise
   claim "<text>" [--external] [--source s] [--verified] [--off-path]
   note assumption|decision|risk|blocker|question "<text>"
   state [--json]            task summary (--json: machine-readable, read-only)
   memory add --class C --fact F --evidence E [--scope project|global] [--tags a,b] [--supersedes id]
   memory search <terms...> | stale <id> [--status S] [--by id] | stats | compact
   export --out <file.jsonl> [--repo <dir>]...
+  protocol [--json]         risks, required oracles, weights, and what each score means
   hook-stop                 Claude Code Stop hook (reads JSON on stdin)
 `;
 
 const COMMANDS = {
   start: cmdStart,
   plan: cmdPlan,
+  req: cmdReq,
+  cover: cmdCover,
   check: cmdCheck,
   gate: cmdGate,
   claim: cmdClaim,
@@ -835,6 +1124,7 @@ const COMMANDS = {
   state: cmdState,
   memory: cmdMemory,
   export: cmdExport,
+  protocol: cmdProtocol,
   'hook-stop': cmdHookStop,
 };
 
@@ -868,7 +1158,7 @@ function main(argv, options = {}) {
   }
 }
 
-module.exports = { main, decide, COMMANDS, REQUIRED, MAX_ROUNDS };
+module.exports = { main, decide, protocol, COMMANDS, REQUIRED, WEIGHTS, SCALES, TERMINAL, MAX_ROUNDS };
 
 if (require.main === module) {
   let stdin = '';
