@@ -52,7 +52,7 @@ function toolSummary(events) {
     skillRead: calls.some((c) => /rdap-q\/SKILL\.md/.test(touched(c))),
     playbooksRead: [...new Set(calls.flatMap((c) => touched(c).match(PLAYBOOK) || []))].sort(),
     stateWrites: calls.filter((c) => WRITE_TOOLS.has(c.name) && STATE_FILE.test(String(c.input.file_path || '').replace(/\\/g, '/'))).length,
-    engineCalls: calls.filter((c) => c.name === 'Bash' && /rdapq(\.js)?\s+(start|plan|req|cover|check|gate|claim|note|state|memory|protocol)\b/.test(String(c.input.command || ''))).length,
+    engineCalls: calls.filter((c) => c.name === 'Bash' && /rdapq(\.js)?\s+(start|plan|req|cover|check|gate|claim|note|state|outcome|memory|protocol)\b/.test(String(c.input.command || ''))).length,
   };
 }
 
